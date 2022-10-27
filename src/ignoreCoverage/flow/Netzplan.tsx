@@ -9,7 +9,6 @@ import ReactFlow, {
 import { Toast } from 'primereact/toast';
 import {GraphHelper} from "./GraphHelper";
 import {NetzplanNodeEditable} from "./NetzplanNodeEditable";
-import {SidebarNodes} from "./SidebarNodes";
 import {MyToolbar} from "./MyToolbar";
 import NetzplanHelper from "./NetzplanHelper";
 import App from "../../App";
@@ -375,7 +374,6 @@ export const Netzplan : FunctionComponent = (props) => {
                             </div>
                             <div style={{display: "flex", flex: 1, flexDirection: "column", backgroundColor: "#DDDDDD"}}>
                                 <MyToolbar autocalc={autocalc} setAutoCalc={setAutoCalc} handleCalc={calcNetzplan} handleLayout={autoLayoutElements} handleClear={reset} nodes={nodes} edges={edges} setNodes={setNodes} setEdges={setEdges} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
-                                <SidebarNodes nodeTypes={nodeTypes} />
                             </div>
                         </div>
                 </div>

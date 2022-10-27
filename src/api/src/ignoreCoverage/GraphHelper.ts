@@ -1,7 +1,11 @@
 import ParseStudIPCSV from "./ParseStudIPCSV";
+import jsgraphs from "js-graph-algorithms";
 
-var jsgraphs = require('js-graph-algorithms');
+//const jsgraphs = require('js-graph-algorithms');
 
+console.log("jsgraphs")
+console.log(jsgraphs)
+console.log(Object.keys(jsgraphs))
 
 /**
  var jsgraphs = require('js-graph-algorithms');
@@ -43,6 +47,10 @@ export default class GraphHelper {
     static getGraph(graphRaw: any, nameToVertice: any, verticeToName: any): any {
         let amountOfVertices = Object.keys(nameToVertice).length;
 
+        console.log("jsgraphs")
+        console.log(jsgraphs)
+        console.log(Object.keys(jsgraphs))
+
         let g = new jsgraphs.FlowNetwork(amountOfVertices);
         let fromIds = Object.keys(graphRaw);
         for(const fromId of fromIds) {
@@ -50,11 +58,14 @@ export default class GraphHelper {
             for(const toId of toIds) {
                 let fromName = verticeToName[fromId];
                 let toName = verticeToName[toId];
+                //@ts-ignore
                 g.node(fromId).label = fromName;
+                //@ts-ignore
                 g.node(toId).label = toName;
 
                 let capacity = graphRaw[fromId][toId];
                 //console.log("Adding edge fromKey " +fromId +"("+ fromName + ") toKey "+ toId +"(" +toName+") with capaity: "+capacity);
+                //@ts-ignore
                 g.addEdge(new jsgraphs.FlowEdge(fromId, toId, capacity));
             }
         }
