@@ -60,6 +60,7 @@
     "@babel/preset-typescript": "^7.14.5",
     "csvtojson": "^2.0.10",
     "eslint": "^7.32.0",
-    "js-graph-algorithms": "^1.0.18"
+    "js-graph-algorithms": "^1.0.18",
+    "patch-package": "^6.5.0"
   }
 }

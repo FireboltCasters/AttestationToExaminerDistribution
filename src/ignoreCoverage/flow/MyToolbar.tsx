@@ -10,6 +10,9 @@ import ParseStudIPCSV from "../../api/src/ignoreCoverage/ParseStudIPCSV";
 import ExampleCSVContent from "../../api/src/ignoreCoverage/ExampleCSVContent";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
+import jsgraphs from "js-graph-algorithms";
+console.log(jsgraphs);
+
 export interface AppState{
     autocalc?: any,
     setAutoCalc?: any,
@@ -116,13 +119,13 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
 
 
 
-            /**
+
             let minTutorCapacity = GraphHelper.getMinTutorCapacity(output, nameToVertice, verticeToName, tutorCapacity);
             console.log("++++  Min Tutor Capacity +++++");
             console.log(minTutorCapacity)
             console.log("++++++++++++++++++");
             let result = GraphHelper.getTutorDistribution(output, nameToVertice, verticeToName, minTutorCapacity);
-             */
+
 
 
             setNodes(nodes)
