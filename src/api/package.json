@@ -5,6 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
+    "postinstall": "patch-package",
     "coverage": "jest --coverage",
     "test": "npm run build && npm run testOnly",
     "testOnly": "npm run coverage",

@@ -1,15 +1,25 @@
 //@ignore-file
 
-import ParseStudIPCSV from "./ParseStudIPCSV";
+import JSONToGraph from "./JSONToGraph";
 import ExampleCSVContent from "./ExampleCSVContent";
 import GraphHelper from "./GraphHelper";
+import ParseStudIPCSVToJSON from "./ParseStudIPCSVToJSON";
 
 async function main(){
     console.log("Try parsing");
-    let output = await ParseStudIPCSV.parse(ExampleCSVContent.getExampleCSVContent());
+    let unoptimizedJSON = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(ExampleCSVContent.getExampleCSVContent());
     console.log("++++  Output +++++");
-    console.log(output);
+    console.log(JSON.stringify(unoptimizedJSON, null, 2));
     console.log("++++++++++++++++++");
+
+    console.log("++++ Optimized JSON +++++");
+    let optimizedJSON = GraphHelper.getOptimizedDistribution(unoptimizedJSON);
+    console.log(JSON.stringify(optimizedJSON, null, 2));
+    console.log("++++++++++++++++++");
+
+
+
+/**
     let nameToVertice = ParseStudIPCSV.getHelpingMapToVertices(output);
     console.log("++++  Name to Vertice +++++");
     console.log(nameToVertice)
@@ -24,7 +34,7 @@ async function main(){
     console.log(minTutorCapacity)
     console.log("++++++++++++++++++");
     let result = GraphHelper.getTutorDistribution(output, nameToVertice, verticeToName, minTutorCapacity);
-
+*/
 
 }
 

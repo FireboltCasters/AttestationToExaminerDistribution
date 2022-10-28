@@ -6,7 +6,7 @@ import {Button} from "primereact/button";
 import DownloadHelper from "../helper/DownloadHelper";
 import NetzplanHelper from "./NetzplanHelper";
 import {SplitButton} from "primereact/splitbutton";
-import ParseStudIPCSV from "../../api/src/ignoreCoverage/ParseStudIPCSV";
+import JSONToGraph from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 import ExampleCSVContent from "../../api/src/ignoreCoverage/ExampleCSVContent";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
@@ -36,6 +36,18 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
         DownloadHelper.downloadTextAsFiletile(JSON.stringify(elements), "graph.json")
     }
 
+    function parseStudipCSVToJSON(event: any){
+        let files = event.files;
+        let file = files[0];
+        const reader = new FileReader();
+        reader.addEventListener('load', async (event) => {
+            let content: string = "" + event?.target?.result;
+            console.log(content);
+            let json = JSONToGraph.parseStudIPCSVToJSON(content);
+            DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
+        });
+    }
+
     function handleImport(event: any){
         let files = event.files;
         let file = files[0];
@@ -44,21 +56,21 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
             let content: string = ""+event?.target?.result;
             console.log(content);
 
-            let output = await ParseStudIPCSV.parse(content);
+            let output = await JSONToGraph.parse(content);
             console.log("++++  Output +++++");
             console.log(output);
             console.log("++++++++++++++++++");
-            let nameToVertice = ParseStudIPCSV.getHelpingMapToVertices(output);
+            let nameToVertice = JSONToGraph.getHelpingMapToVertices(output);
             console.log("++++  Name to Vertice +++++");
             console.log(nameToVertice)
             console.log("++++++++++++++++++");
-            let verticeToName = ParseStudIPCSV.getHelpingMapVerticiesToName(nameToVertice);
+            let verticeToName = JSONToGraph.getHelpingMapVerticiesToName(nameToVertice);
             console.log("++++  Vertice to Name +++++");
             console.log(verticeToName)
             console.log("++++++++++++++++++");
             let tutorCapacity = 16;
 
-            let initialGraph = ParseStudIPCSV.getGraph(output, nameToVertice, tutorCapacity);
+            let initialGraph = JSONToGraph.getGraph(output, nameToVertice, tutorCapacity);
             console.log("++++  Initial Graph +++++");
             console.log(initialGraph)
             console.log("++++++++++++++++++");
@@ -120,7 +132,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
 
 
 
-            let minTutorCapacity = GraphHelper.getMinTutorCapacity(output, nameToVertice, verticeToName, tutorCapacity);
+            let minTutorCapacity = GraphHelper.getMinimalRequiredTutorCapacity(output, nameToVertice, verticeToName, tutorCapacity);
             console.log("++++  Min Tutor Capacity +++++");
             console.log(minTutorCapacity)
             console.log("++++++++++++++++++");
@@ -142,9 +154,11 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
         return new Promise(resolve => setTimeout(resolve, milliseconds));
     }
 
-    const uploadOptions = {label: 'Load CSV', icon: 'pi pi-upload', className: 'p-button-success'};
+    const parseOptions = {label: 'Parse CSV', icon: 'pi pi-upload', className: 'p-button-success'};
+    const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
         <React.Fragment>
+          <FileUpload auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
           <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
           <Button label="Download" icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleExport()}} />
         </React.Fragment>

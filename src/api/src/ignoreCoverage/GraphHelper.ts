@@ -1,11 +1,7 @@
-import ParseStudIPCSV from "./ParseStudIPCSV";
+import JSONToGraph from "./JSONToGraph";
 import jsgraphs from "js-graph-algorithms";
 
 //const jsgraphs = require('js-graph-algorithms');
-
-console.log("jsgraphs")
-console.log(jsgraphs)
-console.log(Object.keys(jsgraphs))
 
 /**
  var jsgraphs = require('js-graph-algorithms');
@@ -44,52 +40,61 @@ console.log(Object.keys(jsgraphs))
 
 export default class GraphHelper {
 
-    static getGraph(graphRaw: any, nameToVertice: any, verticeToName: any): any {
-        let amountOfVertices = Object.keys(nameToVertice).length;
-
-        console.log("jsgraphs")
-        console.log(jsgraphs)
-        console.log(Object.keys(jsgraphs))
+    static getJSGraphsFlowNetwork(graphAndVerticeMaps: any): any {
+        let graphRaw = graphAndVerticeMaps.graph;
+        let fromIds = Object.keys(graphRaw);
+        let amountOfVertices = fromIds.length;
+        console.log("amountOfVertices: "+amountOfVertices);
 
         let g = new jsgraphs.FlowNetwork(amountOfVertices);
-        let fromIds = Object.keys(graphRaw);
+        let amountEdges = 0;
+
         for(const fromId of fromIds) {
+            //console.log("fromId: "+fromId);
             let toIds = Object.keys(graphRaw[fromId]);
             for(const toId of toIds) {
-                let fromName = verticeToName[fromId];
-                let toName = verticeToName[toId];
-                //@ts-ignore
-                g.node(fromId).label = fromName;
-                //@ts-ignore
-                g.node(toId).label = toName;
+                //console.log("toId: "+toId);
+                let edgeInformation = graphRaw[fromId][toId];
+                let capacity = edgeInformation.capacity;
+                let flow = edgeInformation.flow;
+                let from = edgeInformation.from;
+                let to = edgeInformation.to;
 
-                let capacity = graphRaw[fromId][toId];
-                //console.log("Adding edge fromKey " +fromId +"("+ fromName + ") toKey "+ toId +"(" +toName+") with capaity: "+capacity);
+                console.log("Adding edge from "+from+" to "+to+" with capacity "+capacity+" and flow "+flow);
                 //@ts-ignore
                 g.addEdge(new jsgraphs.FlowEdge(fromId, toId, capacity));
+                amountEdges++;
             }
         }
 
-//        g.node(0).label = 'Source';
-//        g.edge(0, 1).label = 'World';
+        console.log("amountEdges: "+amountEdges);
+
+        g.node(0).label = 'Source';
+        g.node(1).label = 'Sink';
 
         return g;
     }
 
-    static getMinTutorCapacity(graphRaw: any, nameToVertice: any, verticeToName: any, initialTutorCapacity: number): number {
-        console.log("getMinTutorCapacity");
-        let graph = ParseStudIPCSV.getGraph(graphRaw, nameToVertice, initialTutorCapacity);
-        let g = GraphHelper.getGraph(graph, nameToVertice, verticeToName);
+    static getMinimalRequiredTutorCapacity(unoptimizedJSON: any): number {
+        let amountGroups = Object.keys(unoptimizedJSON.groups).length;
 
-        let maxFlow = GraphHelper.getMaxFlow(g);
+        let initialTutorCapacity = amountGroups;
+        let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, initialTutorCapacity);
+
+        let source = graphAndVerticeMaps.source;
+        let sink = graphAndVerticeMaps.sink;
+
+        let g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
+        let maxFlow = GraphHelper.getMaxFlow(g, source, sink);
         //console.log("maxFlow with "+initialTutorCapacity+" tutors ==> "+maxFlow);
         // binary search for the minimum tutor capacity
         let lowestTutorCapacity = initialTutorCapacity;
         let nextTutorCapacity = Math.floor(initialTutorCapacity / 2);
         while(lowestTutorCapacity != nextTutorCapacity) {
             let lastNextTutorCapacity = nextTutorCapacity;
-            let newG = GraphHelper.getGraphFromGraphRaw(graphRaw, nameToVertice, verticeToName, nextTutorCapacity);
-            let newMaxFlow = GraphHelper.getMaxFlow(newG);
+            let newgraphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, nextTutorCapacity);
+            let newG = GraphHelper.getJSGraphsFlowNetwork(newgraphAndVerticeMaps);
+            let newMaxFlow = GraphHelper.getMaxFlow(newG, source, sink);
             //console.log("maxFlow with "+nextTutorCapacity+" tutors ==> "+newMaxFlow);
             if(newMaxFlow >= maxFlow) {
 //                console.log("newMaxFlow == maxFlow so we can lower the tutor capacity");
@@ -110,32 +115,43 @@ export default class GraphHelper {
     }
 
     static getGraphFromGraphRaw(graphRaw: any, nameToVertice: any, verticeToName: any, tutorCapacity: number): any {
-        let graph = ParseStudIPCSV.getGraph(graphRaw, nameToVertice, tutorCapacity);
-        let g = GraphHelper.getGraph(graph, nameToVertice, verticeToName);
+        //@ts-ignore
+        let graph = JSONToGraph.getGraph(graphRaw, nameToVertice, tutorCapacity);
+        //@ts-ignore
+        let g = GraphHelper.getJSGraphsFlowNetwork(graph, nameToVertice, verticeToName);
         return g;
     }
 
-    static getTutorDistribution(graphRaw: any, nameToVertice: any, verticeToName: any, tutorCapacity: number): any {
-        console.log("getTutorDistribution");
-        console.log("tutorCapacity: "+tutorCapacity);
-
-        let g = GraphHelper.getGraphFromGraphRaw(graphRaw, nameToVertice, verticeToName, tutorCapacity);
-
-        let source = 0;
-        let target = 1;
-        let ff = new jsgraphs.FordFulkerson(g, source, target);
+    static getTutorDistribution(unoptimizedJSON: any, tutorCapacity: number): any {
+        console.log("getTutorDistribution with tutorCapacity "+tutorCapacity);
+        let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, tutorCapacity);
+        console.log("graphAndVerticeMaps: "+JSON.stringify(graphAndVerticeMaps.graph, null, 2));
+        let g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
+        let maxFlow = GraphHelper.getMaxFlow(g, graphAndVerticeMaps.source, graphAndVerticeMaps.sink);
+        console.log("maxFlow with "+tutorCapacity+" tutors ==> "+maxFlow);
+        let ff = new jsgraphs.FordFulkerson(g, graphAndVerticeMaps.source, graphAndVerticeMaps.sink);
         let minCut = ff.minCut(g);
+        console.log("minCut length: "+minCut.length);
 
-        for(let i = 0; i < minCut.length; ++i) {
+        for(let i = 0; i < minCut.length; i++) {
             let e = minCut[i];
             console.log('min-cut: (' + e.from() + ", " + e.to() + ')');
+            let currentFlow = graphAndVerticeMaps.graph[e.from()][e.to()].flow || 0;
+            console.log(e);
+
+            //@ts-ignore
+            graphAndVerticeMaps.graph[e.from()][e.to()].flow = e.flow;
         }
 
+        return graphAndVerticeMaps;
+
+        //@ts-ignore
         let groups = graphRaw.groups;
         let slotVerticeToGroupVertice = {};
         for(let i = 0; i < groups.length; ++i) {
             let groupName = groups[i];
             //console.log("groupName: "+groupName);
+            //@ts-ignore
             let groupVertice = nameToVertice[groupName];
             //console.log("groupVertice: "+groupVertice);
             for(let j = 0; j< minCut.length; ++j) {
@@ -151,12 +167,13 @@ export default class GraphHelper {
         //console.log("slotVerticeToGroupVertice: ");
         //console.log(slotVerticeToGroupVertice);
 
-
+        //@ts-ignore
         let tutors = graphRaw.tutors;
         let slotVerticeToTutorVerticeMap = {};
         for(let i = 0; i < tutors.length; ++i) {
             let tutorName = tutors[i];
             //console.log("tutorName: "+tutorName);
+            //@ts-ignore
             let tutorVertice = nameToVertice[tutorName];
             //console.log("tutorVertice: "+tutorVertice);
             for(let j = 0; j< minCut.length; ++j) {
@@ -197,12 +214,15 @@ export default class GraphHelper {
             let slotVertice = slotsVertices[i];
             //@ts-ignore
             let tutorVertice = slotVerticeToTutorVerticeMap[slotVertice];
+            //@ts-ignore
             let tutorName = verticeToName[tutorVertice];
             //@ts-ignore
             let groupVertice = slotVerticeToGroupVertice[slotVertice];
+            //@ts-ignore
             let groupName = verticeToName[groupVertice];
+            //@ts-ignore
             let slotName = verticeToName[slotVertice];
-
+            //@ts-ignore
             let oldSlot = graphRaw.groupToSelectedSlotMapping[groupName];
             let slotChanged = oldSlot != slotName;
             if(slotChanged) {
@@ -220,10 +240,12 @@ export default class GraphHelper {
             slotVerticeToDetails[slotVertice] = details;
         }
 
+        /**
         console.log("slotVerticeToDetails: ");
         console.log(slotVerticeToDetails);
         console.log("+++++");
         console.log("amountChanges: "+amountChanges);
+         */
 
         //console.log("tutorVerticeToSlotVerticeMap: ");
         //console.log(tutorVerticeToSlotVerticeMap);
@@ -231,6 +253,7 @@ export default class GraphHelper {
         for(let tutorVertice in tutorVerticeToSlotVerticeMap) {
             //@ts-ignore
             let slots = tutorVerticeToSlotVerticeMap[tutorVertice];
+            //@ts-ignore
             let tutorName = verticeToName[tutorVertice];
             //@ts-ignore
             tutorAmountSlots[tutorName] = slots.length;
@@ -242,10 +265,8 @@ export default class GraphHelper {
 
 
 
-    static getMaxFlow(g: any){
-        let source = 0;
-        let target = 1;
-        let ff = new jsgraphs.FordFulkerson(g, source, target);
+    static getMaxFlow(g: any, source: number, sink: number){
+        let ff = new jsgraphs.FordFulkerson(g, source, sink);
         //console.log('max-flow: ' + ff.value);
 /**
         var minCut = ff.minCut(g);
@@ -258,7 +279,32 @@ export default class GraphHelper {
 
         var ff = new jsgraphs.FordFulkerson(g, source, target);
  */
+        let value = ff.value;
+        console.log("getMaxFlow: "+value);
         return ff.value;
+    }
+
+    static getOptimizedDistribution(unoptimizedJSON: any){
+        let amountGroups = unoptimizedJSON.groups.length;
+        let initialTutorCapacity = amountGroups;
+
+
+        console.log("++++ Calc min tutor capacity +++++");
+        let minTutorCapacity = GraphHelper.getMinimalRequiredTutorCapacity(unoptimizedJSON);
+        console.log("minTutorCapacity: "+minTutorCapacity);
+        console.log("+++++++++");
+
+        console.log("++++ Calc tutorDistribution +++++");
+        let tutorDistribution = GraphHelper.getTutorDistribution(unoptimizedJSON, minTutorCapacity);
+        console.log(tutorDistribution.graph);
+        console.log("+++++++++");
+
+
+        let optimizedJSON = {};
+
+
+
+        return optimizedJSON;
     }
 
 }

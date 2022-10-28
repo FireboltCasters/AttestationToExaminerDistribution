@@ -1,0 +1,136 @@
+const csv = require('csvtojson')
+
+export default class ParseStudIPCSVToJSON {
+
+    static getAllTutorsDict(nodes: any): any {
+        let tutors = {}
+        for(const element of nodes) {
+            let node = element
+            let tutor = ParseStudIPCSVToJSON.getTutorFromNode(node)
+            if(tutor != undefined) {
+                // @ts-ignore
+                if(!tutors[tutor]) {
+                    // @ts-ignore
+                    tutors[tutor] = {}
+                }
+                // @ts-ignore
+                let slotForTutor = ParseStudIPCSVToJSON.getSlotFromNode(node)
+                // @ts-ignore
+                if(!tutors[tutor][slotForTutor.day]) {
+                    // @ts-ignore
+                    tutors[tutor][slotForTutor.day] = {}
+                }
+                // @ts-ignore
+                tutors[tutor][slotForTutor.day][slotForTutor.time] = true;
+            }
+        }
+        return tutors
+    }
+
+    static getTutorFromNode(node: any): string {
+        let ort = node["Ort"]
+        return ort
+    }
+
+    static getSlotFromNode(node: any): any {
+        let datum = node["Datum"]
+        let splits = datum.split(".");
+        let date = new Date();
+        date.setFullYear(parseInt(splits[2]))
+        date.setMonth(parseInt(splits[1]) - 1)
+        date.setDate(parseInt(splits[0]))
+
+        let day = ParseStudIPCSVToJSON.getWeekday(date)
+        let tutor = ParseStudIPCSVToJSON.getTutorFromNode(node)
+
+        let slot = {
+            tutor: tutor,
+            day: day,
+            time: node["Beginn"],
+        }
+        return slot;
+    }
+
+    static getWeekday(date: Date): string{
+        let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        return weekdays[date.getDay()];
+    }
+
+    static getAllGroups(nodes: any): any {
+        let groups = {}
+        for(const element of nodes) {
+            let node = element
+            let groupMembers = ParseStudIPCSVToJSON.getGroupMembersFromNode(node)
+            if(groupMembers != undefined) {
+                let groupId = groupMembers.join(" & ");
+                // @ts-ignore
+                let slotsForGroup = ParseStudIPCSVToJSON.getSlotFromNode(node)
+                // @ts-ignore
+                if(!groups[groupId]) {
+                    // @ts-ignore
+                    groups[groupId] = {}
+                }
+
+                // @ts-ignore
+                //groups[groupId]["members"] = groupMembers;
+
+                // @ts-ignore
+                if(!groups[groupId]["selectedSlot"]) {
+                    // @ts-ignore
+                    groups[groupId]["selectedSlot"] = slotsForGroup
+                }
+
+                // @ts-ignore
+                if(!groups[groupId]["possibleSlots"]) {
+                    // @ts-ignore
+                    groups[groupId]["possibleSlots"] = {}
+                }
+
+                // @ts-ignore
+                if (!groups[groupId]["possibleSlots"][slotsForGroup.day]) {
+                    // @ts-ignore
+                    groups[groupId]["possibleSlots"][slotsForGroup.day] = {}
+                }
+                // @ts-ignore
+                groups[groupId]["possibleSlots"][slotsForGroup.day][slotsForGroup.time] = true;
+            }
+        }
+        return groups
+    }
+
+    static getGroupMembersFromNode(node: any): any {
+        let person = node["Person"]
+        if(person == "") {
+            return undefined
+        }
+        if(person != undefined) {
+            person = person.split("\n")
+        }
+        return person
+    }
+
+    static getTutorFromSlot(slot: string): string {
+        let parts = slot.split("-")
+        return parts[2]
+    }
+
+    static async parseStudIPCSVToJSON(s: string): Promise<any> {
+        let output = await csv({delimiter: ";"}).fromString(s)
+        let result = {
+            groups: {},
+            tutors: {},
+        };
+
+        let tutorDicts = ParseStudIPCSVToJSON.getAllTutorsDict(output)
+        // @ts-ignore
+        result.tutors = tutorDicts;
+
+
+        let groupDicts = ParseStudIPCSVToJSON.getAllGroups(output)
+        // @ts-ignore
+        result.groups = groupDicts;
+
+        return result;
+    }
+
+}
