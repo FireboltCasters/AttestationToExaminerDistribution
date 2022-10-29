@@ -11,6 +11,7 @@ import jsgraphs from "js-graph-algorithms";
 console.log(jsgraphs);
 
 export interface AppState{
+    handleSwitchSelection: any,
     newPlan: any,
     setNewPlan: any,
     setOldPlan: any;
@@ -18,7 +19,7 @@ export interface AppState{
     setReloadNumber?: any,
     reloadNumber?: any
 }
-export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
+export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
 
     function parseStudipCSVToJSON(event: any){
         console.log("parseStudipCSVToJSON");
@@ -33,7 +34,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
             let json = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(content);
             DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
             setOldPlan(json);
-            setReloadNumber(reloadNumber + 1);
+            //setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
     }
@@ -47,7 +48,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
             console.log(content);
             let json = JSON.parse(content);
             setOldPlan(json);
-            setReloadNumber(reloadNumber + 1);
+            //setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
     }
@@ -72,8 +73,11 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
         console.log("handleOptimize");
         console.log(oldPlan);
         let optimizedPlan = GraphHelper.getOptimizedDistribution(oldPlan);
+        console.log("optimizedPlan");
+        console.log(optimizedPlan);
+
         setNewPlan(optimizedPlan);
-        setReloadNumber(reloadNumber+1)
+        //setReloadNumber(reloadNumber+1)
     }
 
     function renderOptimizeButton(){
@@ -140,6 +144,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
             <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
             {renderOptimizeButton()}
             {renderDownloadButton()}
+            <Button label="Switch Selection" icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleSwitchSelection()}} />
             <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
                 <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>

@@ -20,9 +20,8 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
     const [oldPlan, setOldPlan] = useState(ExampleCSVContent.getExampleParsedJSON());
     const [newPlan, setNewPlan] = useState(null);
 
-    console.log("oldPlan");
-    console.log(oldPlan);
-
+    const [selectedSlotFirst, setSelectedSlotFirst] = useState(null);
+    const [selectedSlotSecond, setSelectedSlotSecond] = useState(null);
 
     async function sleep(milliseconds: number) {
         return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -38,22 +37,185 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         document.title = "Attestation to Examiner Distribution";
     }, [])
 
+    function handleSelect(slotToSave: any, isSelectedAtFirst: boolean, isSelectedAtSecond: boolean){
+        if(selectedSlotFirst === null){
+            console.log("Save first slot");
+            console.log(slotToSave)
+            //@ts-ignore
+            setSelectedSlotFirst(slotToSave);
+            //@ts-ignore
+        } else if(selectedSlotSecond === null && !isSelectedAtFirst){
+            //@ts-ignore
+            setSelectedSlotSecond(slotToSave);
+        }
+        // @ts-ignore
+        if(isSelectedAtFirst){
+            //@ts-ignore
+            setSelectedSlotFirst(null);
+        }
+        // @ts-ignore
+        if(isSelectedAtSecond){
+            //@ts-ignore
+            setSelectedSlotSecond(null);
+        }
+    }
+
     function renderGroup(groupName: string, oldSelectedSlot: any, newSelectedSlot: any){
         let tutorChanged = false;
+        let useSelectedSlot = newSelectedSlot ? newSelectedSlot : oldSelectedSlot;
         if(newSelectedSlot?.tutor && newSelectedSlot.tutor !== oldSelectedSlot?.tutor){
             tutorChanged = true;
         }
 
         let borderColor = tutorChanged ? "rgb(255, 0, 0)" : "rgb(0, 0, 0)";
+        //@ts-ignore
+        let isSelectedAtFirst = selectedSlotFirst?.group === groupName;
+        //@ts-ignore
+        let isSelectedAtSecond = selectedSlotSecond?.group === groupName;
+        let isSelected = isSelectedAtFirst || isSelectedAtSecond;
+
+        if(isSelected){
+            borderColor = "rgb(0, 255, 0)";
+        }
+
+        let slotToSave = {
+            tutor: useSelectedSlot?.tutor,
+            time: useSelectedSlot?.time,
+            day: useSelectedSlot?.day,
+            group: groupName,
+        };
 
         return (
-            <div key={groupName} style={{border: '2px solid '+borderColor, marginBottom: 5}}>
+            <div key={groupName} style={{border: '2px solid '+borderColor, marginBottom: 5}} onClick={() => {
+                handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
+            }}>
                 <div>{"Group: "+groupName}</div>
                 <div style={{height: 10}}></div>
-                <div>{"Tutor alt: "+oldSelectedSlot?.tutor}</div>
+                <div>{"Tutor old: "+oldSelectedSlot?.tutor}</div>
                 <div>{"Tutor new: "+newSelectedSlot?.tutor}</div>
             </div>
         )
+    }
+
+
+    async function handleSwitchSelection(){
+        let usePlan = newPlan ? newPlan : oldPlan;
+        if(selectedSlotFirst && selectedSlotSecond){
+            // @ts-ignore
+            let isFirstSelectionAGroup = selectedSlotFirst?.group !== undefined;
+            // @ts-ignore
+            let isSecondSelectionAGroup = selectedSlotSecond?.group !== undefined;
+            if(isFirstSelectionAGroup || isSecondSelectionAGroup){
+                if(isFirstSelectionAGroup){
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.tutor = selectedSlotSecond?.tutor;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.time = selectedSlotSecond?.time;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.day = selectedSlotSecond?.day;
+                } else {
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.tutor = selectedSlotFirst?.tutor;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.time = selectedSlotFirst?.time;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.day = selectedSlotFirst?.day;
+                }
+
+                if(isSecondSelectionAGroup){
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.tutor = selectedSlotFirst?.tutor;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.time = selectedSlotFirst?.time;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotSecond?.group].selectedSlot.day = selectedSlotFirst?.day;
+                } else {
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.tutor = selectedSlotSecond?.tutor;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.time = selectedSlotSecond?.time;
+                    // @ts-ignore
+                    usePlan.groups[selectedSlotFirst?.group].selectedSlot.day = selectedSlotSecond?.day;
+                }
+
+                //@ts-ignore
+                setNewPlan(usePlan);
+                //@ts-ignore
+                setSelectedSlotFirst(null);
+                //@ts-ignore
+                setSelectedSlotSecond(null);
+            } else {
+                try{
+                    //@ts-ignore
+                    toast.current.show({severity: 'error', summary: 'Error', detail: 'Select atleast one group', life: 3000});
+                } catch (e) {
+                    console.log(e);
+                }
+            }
+        }
+    }
+
+    function renderEmptyTutor(tutor: string, day: string, time: string){
+        let slotToSave = {
+            tutor: tutor,
+            time: time,
+            day: day,
+            group: undefined,
+        };
+
+        //@ts-ignore
+        let isSelectedAtFirst = (selectedSlotFirst?.tutor === tutor && selectedSlotFirst?.day === day && selectedSlotFirst?.time === time);
+        //@ts-ignore
+        let isSelectedAtSecond = (selectedSlotSecond?.tutor === tutor && selectedSlotSecond?.day === day && selectedSlotSecond?.time === time);
+        let isSelected = isSelectedAtFirst || isSelectedAtSecond;
+
+        let backgroundColor = isSelected ? "rgb(0, 255, 0)" : "rgb(0, 0, 0)";
+
+        return (
+            <div key={tutor} style={{border: '2px solid '+backgroundColor, marginBottom: 5}} onClick={() => {
+                handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
+            }}>
+                <div>{"Tutor: "+tutor}</div>
+            </div>
+        )
+    }
+
+    function renderEmptySlotsOfTutors(day: string, time: string){
+        // @ts-ignore
+        let usePlan = !!newPlan ? newPlan : oldPlan;
+
+        let emptyTutorSlots = [];
+        let tutors = Object.keys(usePlan?.tutors || {});
+        for(let tutor of tutors){
+            let slotsByDayAndTimeForTutorDict = usePlan?.tutors?.[tutor];
+            let slotsForDayDict = slotsByDayAndTimeForTutorDict?.[day];
+            if(slotsForDayDict){
+                let slotForTime = slotsForDayDict?.[time];
+                if(slotForTime){
+//                    console.log("Tutor "+tutor+" has slot for day "+day+" and time "+time);
+  //                  console.log(slotsForDayDict)
+                    let slotUsed = false;
+                    let groups = usePlan?.groups || {};
+                    let groupNames = Object.keys(groups);
+                    for(let groupName of groupNames){
+                        let group = groups?.[groupName];
+                        let selectedSlot = group?.selectedSlot;
+    //                    console.log("selectedSlot for group "+groupName);
+      //                  console.log(selectedSlot);
+                        if(selectedSlot?.tutor === tutor && selectedSlot?.day === day && selectedSlot?.time === time){
+                            slotUsed = true;
+                        }
+                    }
+
+                    if(!slotUsed){
+                        emptyTutorSlots.push(renderEmptyTutor(tutor, day, time));
+                    }
+                }
+            }
+        }
+
+        // @ts-ignore
+        return emptyTutorSlots;
     }
 
     function renderWeekday(day: string, time: string){
@@ -78,10 +240,17 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
                     let groupName = oldGroupNames[i];
                     let oldSelectedSlot = oldGroups?.[groupName]?.selectedSlot;
                     let newSelectedSlot = newGroups?.[groupName]?.selectedSlot;
-                    if (oldSelectedSlot && oldSelectedSlot.day === day && oldSelectedSlot.time === time) {
+                    let useSelectedSlot = !!newSelectedSlot ? newSelectedSlot : oldSelectedSlot;
+
+                    if (useSelectedSlot.day === day && useSelectedSlot.time === time) {
                         renderedGroups.push(renderGroup(groupName, oldSelectedSlot, newSelectedSlot));
                     }
                 }
+                let emptySlotsOfTutors = renderEmptySlotsOfTutors(day, time);
+                for(let i=0; i<emptySlotsOfTutors.length; i++){
+                    renderedGroups.push(emptySlotsOfTutors[i]);
+                }
+
                 renderedContent = renderedGroups;
             }
 
@@ -111,6 +280,10 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         let timeslots = getTimeslots();
         let timeslotFlex = 1;
         let renderedTimeslots = [];
+
+        let usePlan = !!newPlan ? newPlan : oldPlan;
+        console.log(usePlan);
+
         renderedTimeslots.push(
             <div key={"header"} style={{borderWidth: 2, borderColor: "black", flexDirection: "row", display: "flex", width: "100%", flex: 1, backgroundColor: "green"}}>
                 <div key={"Test"} style={{border: '2px solid rgba(0, 0, 0, 0.05)', flexGrow: 1, flex: timeslotFlex, backgroundColor: "white", alignContent: "center"}}>
@@ -161,7 +334,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
     }
 
     return (
-            <ReactFlowProvider key={reloadNumber+1+""}>
+            <ReactFlowProvider >
                 <Toast ref={toast}></Toast>
                 <div style={{width: "100%", height: "100vh"}}>
                         <div style={{display: "flex", flexDirection: "row", height: "100%"}}>
@@ -169,7 +342,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
                                 {renderPlan()}
                             </div>
                             <div style={{display: "flex", flex: 1, flexDirection: "column", backgroundColor: "#EEEEEE"}}>
-                                <MyToolbar newPlan={newPlan} setNewPlan={setNewPlan} setOldPlan={setOldPlan} oldPlan={oldPlan} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
+                                <MyToolbar handleSwitchSelection={handleSwitchSelection} newPlan={newPlan} setNewPlan={setNewPlan} setOldPlan={setOldPlan} oldPlan={oldPlan} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
                             </div>
                         </div>
                 </div>
