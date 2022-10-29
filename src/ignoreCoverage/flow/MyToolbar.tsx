@@ -34,6 +34,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, s
             let json = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(content);
             DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
             setOldPlan(json);
+            setNewPlan(null);
             //setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
@@ -48,6 +49,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, s
             console.log(content);
             let json = JSON.parse(content);
             setOldPlan(json);
+            setNewPlan(null);
             //setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
