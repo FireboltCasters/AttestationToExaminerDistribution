@@ -2,6 +2,16 @@ const csv = require('csvtojson')
 
 export default class JSONToGraph {
 
+    static getWeekday(date: Date): string{
+        return JSONToGraph.getWeekdayByNumber(date.getDay());
+    }
+
+    static getWeekdayByNumber(number: number): string {
+        number = number % 7;
+        let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        return weekdays[number];
+    }
+
     static getSlotId(slot: any): string {
         return JSONToGraph.getSlotIdFromFields(slot.time, slot.day, slot.tutor);
     }
@@ -38,7 +48,7 @@ export default class JSONToGraph {
     }
 
     static getGraphAndVerticeMaps(parsedJSON: any, tutorCapacity: number): any {
-        console.log("getGraphAndVerticeMaps: with tutorCapacity: "+tutorCapacity)
+        //console.log("getGraphAndVerticeMaps: with tutorCapacity: "+tutorCapacity)
 
         let result = {
             source: 0,
@@ -77,7 +87,7 @@ export default class JSONToGraph {
 
             //@ts-ignore
             result.graph[source] = result.graph[source] || {};
-            console.log("Adding edge from source to groupVertice: "+groupVertice)
+//            console.log("Adding edge from source to groupVertice: "+groupVertice)
             //@ts-ignore
             result.graph[source][groupVertice] = {
                 flow: 0,
@@ -126,7 +136,7 @@ export default class JSONToGraph {
                             //@ts-ignore
                             result.graph[groupVertice] = result.graph[groupVertice] || {};
 
-                            console.log("Adding edge from groupVertice: "+groupVertice+" to slotVertice: "+slotVertice)
+                            //console.log("Adding edge from groupVertice: "+groupVertice+" to slotVertice: "+slotVertice)
                             //@ts-ignore
                             result.graph[groupVertice][slotVertice] = {
                                 flow: 0,
@@ -167,7 +177,7 @@ export default class JSONToGraph {
             let tutorVertice = result.nameToVertice[tutor];
             //@ts-ignore
             result.graph[slotVertice] = result.graph[slotVertice] || {};
-            console.log("Adding edge from slotVertice: "+slotVertice+" to tutorVertice: "+tutorVertice)
+            //console.log("Adding edge from slotVertice: "+slotVertice+" to tutorVertice: "+tutorVertice)
             //@ts-ignore
             result.graph[slotVertice][tutorVertice] = {
                 flow: 0,
@@ -185,7 +195,7 @@ export default class JSONToGraph {
             //@ts-ignore
             result.graph[tutorVertice] = result.graph[tutorVertice] || {};
 
-            console.log("Adding edge from tutorVertice: "+tutorVertice+" to sink: "+sink)
+            //console.log("Adding edge from tutorVertice: "+tutorVertice+" to sink: "+sink)
             //@ts-ignore
             result.graph[tutorVertice][sink] = {
                 flow: 0,
@@ -199,9 +209,9 @@ export default class JSONToGraph {
         //@ts-ignore
         result.graph[sink] = result.graph[sink] || {};
 
-        console.log("Amount groups: "+groupNames.length);
-        console.log("Amount slots: "+slots.length);
-        console.log("Amount tutors: "+tutors.length);
+        //console.log("Amount groups: "+groupNames.length);
+        //console.log("Amount slots: "+slots.length);
+        //console.log("Amount tutors: "+tutors.length);
 
 //        console.log(JSON.stringify(result.graph, null, 2));
 

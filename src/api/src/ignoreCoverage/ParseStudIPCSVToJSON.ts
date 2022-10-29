@@ -1,3 +1,5 @@
+import JSONToGraph from "./JSONToGraph";
+
 const csv = require('csvtojson')
 
 export default class ParseStudIPCSVToJSON {
@@ -52,8 +54,7 @@ export default class ParseStudIPCSVToJSON {
     }
 
     static getWeekday(date: Date): string{
-        let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        return weekdays[date.getDay()];
+        return JSONToGraph.getWeekdayByNumber(date.getDay());
     }
 
     static getAllGroups(nodes: any): any {
@@ -131,6 +132,30 @@ export default class ParseStudIPCSVToJSON {
         result.groups = groupDicts;
 
         return result;
+    }
+
+    static getGroupsForTutors(parsedAsJSON: any){
+        let tutorNames = Object.keys(parsedAsJSON.tutors)
+        let tutorsWithGroups = {}
+        let groupNames = Object.keys(parsedAsJSON.groups)
+        for(const groupName of groupNames) {
+            let group = parsedAsJSON.groups[groupName]
+            let tutorName = group.selectedSlot.tutor
+            if(tutorName != undefined) {
+                // @ts-ignore
+                if(!tutorsWithGroups[tutorName]) {
+                    // @ts-ignore
+                    tutorsWithGroups[tutorName] = []
+                }
+                // @ts-ignore
+                tutorsWithGroups[tutorName].push({
+                    group: groupName,
+                    day: group.selectedSlot.day,
+                    time: group.selectedSlot.time,
+                })
+            }
+        }
+        return tutorsWithGroups
     }
 
 }

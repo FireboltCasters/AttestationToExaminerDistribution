@@ -5,47 +5,38 @@ import { FileUpload } from 'primereact/fileupload';
 import {Button} from "primereact/button";
 import DownloadHelper from "../helper/DownloadHelper";
 import NetzplanHelper from "./NetzplanHelper";
-import {SplitButton} from "primereact/splitbutton";
-import JSONToGraph from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
-import ExampleCSVContent from "../../api/src/ignoreCoverage/ExampleCSVContent";
+import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
 import jsgraphs from "js-graph-algorithms";
 console.log(jsgraphs);
 
 export interface AppState{
-    autocalc?: any,
-    setAutoCalc?: any,
-    nodes?: any,
-    setNodes?: any,
-    edges?: any,
-    setEdges?: any,
-    handleCalc?: any,
-    handleLayout: any,
-    handleClear?: any
+    newPlan: any,
+    setNewPlan: any,
+    setOldPlan: any;
+    oldPlan: any;
     setReloadNumber?: any,
     reloadNumber?: any
 }
-export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, nodes, edges, setEdges, setNodes, setReloadNumber, reloadNumber, handleCalc,handleLayout, handleClear, ...props}) => {
-
-    function handleExport(){
-        let elements = {
-            nodes: nodes,
-            edges: NetzplanHelper.removeEdgeStyle(JSON.parse(JSON.stringify(edges)))
-        };
-        DownloadHelper.downloadTextAsFiletile(JSON.stringify(elements), "graph.json")
-    }
+export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
 
     function parseStudipCSVToJSON(event: any){
+        console.log("parseStudipCSVToJSON");
+        console.log(event);
         let files = event.files;
         let file = files[0];
         const reader = new FileReader();
         reader.addEventListener('load', async (event) => {
+            console.log("File loaded");
             let content: string = "" + event?.target?.result;
             console.log(content);
-            let json = JSONToGraph.parseStudIPCSVToJSON(content);
+            let json = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(content);
             DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
+            setOldPlan(json);
+            setReloadNumber(reloadNumber + 1);
         });
+        reader.readAsText(file);
     }
 
     function handleImport(event: any){
@@ -55,97 +46,9 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
         reader.addEventListener('load', async (event) => {
             let content: string = ""+event?.target?.result;
             console.log(content);
-
-            let output = await JSONToGraph.parse(content);
-            console.log("++++  Output +++++");
-            console.log(output);
-            console.log("++++++++++++++++++");
-            let nameToVertice = JSONToGraph.getHelpingMapToVertices(output);
-            console.log("++++  Name to Vertice +++++");
-            console.log(nameToVertice)
-            console.log("++++++++++++++++++");
-            let verticeToName = JSONToGraph.getHelpingMapVerticiesToName(nameToVertice);
-            console.log("++++  Vertice to Name +++++");
-            console.log(verticeToName)
-            console.log("++++++++++++++++++");
-            let tutorCapacity = 16;
-
-            let initialGraph = JSONToGraph.getGraph(output, nameToVertice, tutorCapacity);
-            console.log("++++  Initial Graph +++++");
-            console.log(initialGraph)
-            console.log("++++++++++++++++++");
-
-            let nodes = [];
-            let edges = [];
-            nodes.push({"id":"Start","type":"input","data":{"label":"Start"},"position":{"x":260.5,"y":-76},"width":150,"height":36},)
-            edges.push({"source":"Start","target":0,"id":"reactflow__edge-Start-Activity_0"})
-            nodes.push({
-                id: "Ende", //sink
-                type: "ReactFlowNetzplanNode",
-                data: {
-                    label: "Sink",
-                    type: "Ende"
-                },
-                width:150,height:36,
-                position:{x:260.5,y:-76}
-            });
-
-
-            let verticeIds = Object.keys(initialGraph);
-            for(let i = 0; i < verticeIds.length; i++){
-                let verticeId = verticeIds[i];
-                let vertice = initialGraph[verticeId];
-                let name = verticeToName[verticeId];
-                let node = {
-                    id: verticeId,
-                    type: "ReactFlowNetzplanNode",
-                    data: {
-                        label: name,
-                        type: "Knoten"
-                    },
-                    width:150,height:36,
-                    position:{x:260.5,y:-76}
-                };
-                nodes.push(node);
-
-                let connectionToVerticeIds = Object.keys(vertice);
-                console.log("++++  Connection to Vertice Ids +++++");
-                console.log(connectionToVerticeIds)
-                for(let j = 0; j < connectionToVerticeIds.length; j++){
-                    let connectionToVerticeId = connectionToVerticeIds[j];
-                    let connectionToVertice = vertice[connectionToVerticeId];
-                    if(connectionToVerticeId === '1'){
-                        connectionToVerticeId = "Ende"
-                    }
-                    let edge = {"source":verticeId,"target":connectionToVerticeId,"targetHandle":null,"id":"reactflow__edge-"+verticeId+"-"+connectionToVerticeId}
-                    edges.push(edge);
-                }
-            }
-
-            console.log("++++  Nodes +++++");
-            console.log(nodes)
-            console.log("++++++++++++++++++");
-            console.log("++++  Edges +++++");
-            console.log(edges)
-            console.log("++++++++++++++++++");
-
-
-
-
-            let minTutorCapacity = GraphHelper.getMinimalRequiredTutorCapacity(output, nameToVertice, verticeToName, tutorCapacity);
-            console.log("++++  Min Tutor Capacity +++++");
-            console.log(minTutorCapacity)
-            console.log("++++++++++++++++++");
-            let result = GraphHelper.getTutorDistribution(output, nameToVertice, verticeToName, minTutorCapacity);
-
-
-
-            setNodes(nodes)
-            setEdges(edges)
-            await sleep(100);
-            //setNodes(elements?.nodes)
-            //setEdges(NetzplanHelper.applyDefaultEdgeStyle(elements?.edges));
-            setReloadNumber(reloadNumber+1);
+            let json = JSON.parse(content);
+            setOldPlan(json);
+            setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
     }
@@ -154,46 +57,92 @@ export const MyToolbar: FunctionComponent<AppState> = ({autocalc, setAutoCalc, n
         return new Promise(resolve => setTimeout(resolve, milliseconds));
     }
 
-    const parseOptions = {label: 'Parse CSV', icon: 'pi pi-upload', className: 'p-button-success'};
+    async function handleExport(){
+       // let graph = GraphHelper.getGraphFromPlan(plan);
+        //let json = GraphHelper.getJSONFromGraph(graph);
+        //DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json")
+    }
+
+    function renderParseStudipFileUpload(){
+        const parseOptions = {label: 'Parse Stud.IP CSV', icon: 'pi pi-upload', className: 'p-button-warning'};
+        return(
+            <FileUpload key={reloadNumber} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
+        )
+    }
+
+    async function handleOptimize(){
+        console.log("handleOptimize");
+        console.log(oldPlan);
+        let optimizedPlan = GraphHelper.getOptimizedDistribution(oldPlan);
+        setNewPlan(optimizedPlan);
+        setReloadNumber(reloadNumber+1)
+    }
+
+    function renderOptimizeButton(){
+        let disabled = !oldPlan;
+        let label = !!oldPlan ? "Optimize" : "No plan to optimize";
+
+        return(
+            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleOptimize()}} />
+        )
+    }
+
+    function countGroupsForTutor(plan: any, tutor: string){
+        if(!plan){
+            return undefined;
+        }
+
+        let amount = 0;
+        let groups = plan?.groups || {};
+        let groupNames = Object.keys(groups);
+        for(let groupName of groupNames){
+            let group = groups[groupName];
+            let selectedSlot = group?.selectedSlot;
+            if(selectedSlot?.tutor === tutor){
+                amount++;
+            }
+        }
+
+
+        return amount;
+    }
+
+    function renderTutorAuslastung(){
+        let tutorsDict = oldPlan?.tutors || {};
+        let tutors = Object.keys(tutorsDict);
+        let renderedTutors = [];
+        for(let tutor of tutors){
+            let tutorAuslastungOld = countGroupsForTutor(oldPlan, tutor);
+            let tutorAuslastungNew = countGroupsForTutor(newPlan, tutor);
+            renderedTutors.push(
+                <div key={tutor} style={{flexDirection: "row", display: "flex"}}>
+                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor+": "}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
+                </div>
+            )
+        }
+        return renderedTutors;
+    }
+
     const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
-        <React.Fragment>
-          <FileUpload auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
-          <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
-          <Button label="Download" icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleExport()}} />
-        </React.Fragment>
+        <div style={{width: "100%"}}>
+            {renderParseStudipFileUpload()}
+            <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
+            {renderOptimizeButton()}
+          <Button label="Download New Plan" icon="pi pi-download" className="p-button-info" style={{margin: 5}} onClick={() => {handleExport()}} />
+            <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
+            <div>{"Tutor Auslastung"}</div>
+            <div style={{width: "100%"}}>
+                {renderTutorAuslastung()}
+            </div>
+        </div>
     );
 
     const iconCalcAuto = "pi pi-sync"
     const iconCalcManual = "pi pi-refresh"
 
-    const items = [
-        {
-            label: 'Auto-Calc',
-            icon: iconCalcAuto,
-            command: () => {
-                setAutoCalc(!autocalc)
-            }
-        },
-        {
-            label: 'Calc',
-            icon: iconCalcManual,
-            command: () => {
-                setAutoCalc(!autocalc)
-            }
-        }
-    ];
-
-    let calcLabel = autocalc ? "Auto-Calc" : "Calc"
-    let calcIcon = autocalc ? iconCalcAuto : iconCalcManual
-
-    const rightContents = (
-        <React.Fragment>
-            <Button label="Distribute" icon="pi pi-sitemap" className="p-button-success" style={{margin: 5}} onClick={() => {handleLayout()}} />
-            <Button label="Auto Layout" icon="pi pi-sitemap" className="p-button-success" style={{margin: 5}} onClick={() => {handleLayout()}} />
-            <Button label="Clear" icon="pi pi-trash" className="p-button-danger" style={{margin: 5}} onClick={() => {handleClear()}} />
-        </React.Fragment>
-    );
-
-    return <Toolbar left={leftContents} right={rightContents} />
+    return <Toolbar right={leftContents} />
   }

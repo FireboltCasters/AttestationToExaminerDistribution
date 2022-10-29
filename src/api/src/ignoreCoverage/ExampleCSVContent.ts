@@ -1,5 +1,88 @@
 export default class ExampleCSVContent {
 
+    static getExampleParsedJSON(): any {
+        return {
+            "tutors": {
+                "Tutor 1": {
+                    "Monday": {
+                        "10:00": true,
+                        "11:00": true,
+                        "12:00": true,
+                    }
+                },
+                "Tutor 2": {
+                    "Monday": {
+                        "11:00": true,
+                        "12:00": true,
+                        "13:00": true,
+                    }
+                }
+            },
+            "groups": {
+                "Group 1": {
+                    "selectedSlot": {
+                        "tutor": "Tutor 1",
+                        "day": "Monday",
+                        "time": "10:00",
+                    },
+                    "possibleSlots": {
+                        "Monday": {
+                            "10:00": true,
+                            "11:00": true,
+                            "12:00": true,
+                            "13:00": true,
+                        }
+                    }
+                },
+                "Group 2": {
+                    "selectedSlot": {
+                        "tutor": "Tutor 1",
+                        "day": "Monday",
+                        "time": "11:00",
+                    },
+                    "possibleSlots": {
+                        "Monday": {
+                            "10:00": true,
+                            "11:00": true,
+                            "12:00": true,
+                            "13:00": true,
+                        }
+                    }
+                },
+                "Group 3": {
+                    "selectedSlot": {
+                        "tutor": "Tutor 1",
+                        "day": "Monday",
+                        "time": "12:00",
+                    },
+                    "possibleSlots": {
+                        "Monday": {
+                            "10:00": true,
+                            "11:00": true,
+                            "12:00": true,
+                            "13:00": true,
+                        }
+                    }
+                },
+                "Group 4": {
+                    "selectedSlot": {
+                        "tutor": "Tutor 2",
+                        "day": "Monday",
+                        "time": "13:00",
+                    },
+                    "possibleSlots": {
+                        "Monday": {
+                            "10:00": true,
+                            "11:00": true,
+                            "12:00": true,
+                            "13:00": true,
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     static getExampleCSVContent(): string {
         return 'Datum;Beginn;Ende;Person;Ort;Notiz;Grund\n' +
             '07.11.2022;10:30;11:00;"Bjarne Blumenthal\n' +
