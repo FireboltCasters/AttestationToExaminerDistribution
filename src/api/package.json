@@ -1,6 +1,6 @@
 {
   "name": "attestation-to-examiner-distribution",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "An API to calculate the precedence diagram method",
   "main": "index.js",
   "types": "index.d.ts",
