@@ -4,7 +4,6 @@ import {Toolbar} from "primereact/toolbar";
 import { FileUpload } from 'primereact/fileupload';
 import {Button} from "primereact/button";
 import DownloadHelper from "../helper/DownloadHelper";
-import NetzplanHelper from "./NetzplanHelper";
 import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
@@ -58,9 +57,8 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
     }
 
     async function handleExport(){
-       // let graph = GraphHelper.getGraphFromPlan(plan);
-        //let json = GraphHelper.getJSONFromGraph(graph);
-        //DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json")
+       let json = newPlan
+       DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json")
     }
 
     function renderParseStudipFileUpload(){
@@ -84,6 +82,15 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
 
         return(
             <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleOptimize()}} />
+        )
+    }
+
+    function renderDownloadButton(){
+        let disabled = !newPlan;
+        let label = !!newPlan ? "Download" : "No plan to download";
+
+        return(
+            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleExport()}} />
         )
     }
 
@@ -128,13 +135,18 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
 
     const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
-        <div style={{width: "100%"}}>
+        <div style={{width: "100%", flexGrow: 1, flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 20,paddingTop: 20, paddingRight: 20}}>
             {renderParseStudipFileUpload()}
             <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
             {renderOptimizeButton()}
-          <Button label="Download New Plan" icon="pi pi-download" className="p-button-info" style={{margin: 5}} onClick={() => {handleExport()}} />
+            {renderDownloadButton()}
             <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
-            <div>{"Tutor Auslastung"}</div>
+            <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
+                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>
+                <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"vorher"}</div>
+                <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"nachher"}</div>
+            </div>
             <div style={{width: "100%"}}>
                 {renderTutorAuslastung()}
             </div>
@@ -144,5 +156,5 @@ export const MyToolbar: FunctionComponent<AppState> = ({setOldPlan, oldPlan, set
     const iconCalcAuto = "pi pi-sync"
     const iconCalcManual = "pi pi-refresh"
 
-    return <Toolbar right={leftContents} />
+    return leftContents
   }

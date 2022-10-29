@@ -8,15 +8,12 @@ import ReactFlow, {
 } from 'react-flow-renderer';
 import { Toast } from 'primereact/toast';
 import {MyToolbar} from "./MyToolbar";
-import NetzplanHelper from "./NetzplanHelper";
-import {ExampleCSVContent} from "./../../api/src/";
-import ParseStudIPCSVToJSON from "../../api/build/ignoreCoverage/ParseStudIPCSVToJSON";
-import JSONToGraph from "../../api/src/ignoreCoverage/JSONToGraph";
+import {ExampleCSVContent, JSONToGraph} from "./../../api/src/";
 
 const edgeNormal = "#444444";
 const edgeCritical = "#ff2222";
 
-export const Netzplan : FunctionComponent = (props) => {
+export const AttestationToExaminerDistribution : FunctionComponent = (props) => {
 
     const toast = useRef(null);
     const [reloadNumber, setReloadNumber] = useState(0)
@@ -171,7 +168,7 @@ export const Netzplan : FunctionComponent = (props) => {
                             <div style={{display: "flex", flex: 3, backgroundColor: "red"}}>
                                 {renderPlan()}
                             </div>
-                            <div style={{display: "flex", flex: 1, flexDirection: "column", backgroundColor: "#DDDDDD"}}>
+                            <div style={{display: "flex", flex: 1, flexDirection: "column", backgroundColor: "#EEEEEE"}}>
                                 <MyToolbar newPlan={newPlan} setNewPlan={setNewPlan} setOldPlan={setOldPlan} oldPlan={oldPlan} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
                             </div>
                         </div>
