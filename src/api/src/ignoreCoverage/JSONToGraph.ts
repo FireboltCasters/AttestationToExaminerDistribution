@@ -6,10 +6,48 @@ export default class JSONToGraph {
         return JSONToGraph.getWeekdayByNumber(date.getDay());
     }
 
+    static getWeekdayTranslation(weekday: string): string {
+        let translation = {
+            "Monday": "Montag",
+            "Tuesday": "Dienstag",
+            "Wednesday": "Mittwoch",
+            "Thursday": "Donnerstag",
+            "Friday": "Freitag",
+            "Saturday": "Samstag",
+            "Sunday": "Sonntag",
+        }
+        //@ts-ignore
+        return translation[weekday];
+    }
+
     static getWeekdayByNumber(number: number): string {
         number = number % 7;
         let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         return weekdays[number];
+    }
+
+    static getWorkingWeekdays(){
+        let offset = 1;
+        let weekdays = [];
+        for(let i=0; i<5; i++) {
+            let weekday = JSONToGraph.getWeekdayByNumber(i + offset);
+            weekdays.push(weekday);
+        }
+        return weekdays;
+    }
+
+    static getTimeslots(){
+        let startHour = 8;
+        let endHour = 20;
+        let minuteStep = 15;
+
+        let timeslots = [];
+        for(let i = startHour; i < endHour; i++){
+            for(let j = 0; j < 60; j+=minuteStep){
+                timeslots.push(i + ":" + (j < 10 ? "0" + j : j));
+            }
+        }
+        return timeslots;
     }
 
     static getSlotId(slot: any): string {

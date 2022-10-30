@@ -291,22 +291,8 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         }
     }
 
-    function getTimeslots(){
-        let startHour = 8;
-        let endHour = 20;
-        let minuteStep = 15;
-
-        let timeslots = [];
-        for(let i = startHour; i < endHour; i++){
-            for(let j = 0; j < 60; j+=minuteStep){
-                timeslots.push(i + ":" + (j < 10 ? "0" + j : j));
-            }
-        }
-        return timeslots;
-    }
-
     function renderTimeslots(){
-        let timeslots = getTimeslots();
+        let timeslots = JSONToGraph.getTimeslots();
         let timeslotFlex = 1;
         let renderedTimeslots = [];
 
@@ -338,9 +324,8 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
 
     function renderWeekdays(timeslot: any){
         let renderedWeekdays = [];
-        let offset = 1;
-        for(let i=0; i<5; i++){
-            let weekday = JSONToGraph.getWeekdayByNumber(i+offset);
+        let workingWeekdays = JSONToGraph.getWorkingWeekdays();
+        for(let weekday of workingWeekdays){
             renderedWeekdays.push(renderWeekday(weekday, timeslot));
         }
 
