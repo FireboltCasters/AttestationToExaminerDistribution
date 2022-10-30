@@ -126,9 +126,14 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         let tutorsDict = oldPlan?.tutors || {};
         let tutors = Object.keys(tutorsDict);
         let renderedTutors = [];
+
+        let groupsForTutorInOldPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan)
+        let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan)
         for(let tutor of tutors){
-            let tutorAuslastungOld = countGroupsForTutor(oldPlan, tutor);
-            let tutorAuslastungNew = countGroupsForTutor(newPlan, tutor);
+            //@ts-ignore
+            let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {})?.length;
+            //@ts-ignore
+            let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex"}}>
                     <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor+": "}</div>
@@ -139,6 +144,16 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             )
         }
         return renderedTutors;
+    }
+
+    function renderDownloadGroupsForTutor(){
+        return(
+            <Button label={"Download Tutors groups"} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {
+                let usePlan = newPlan || oldPlan;
+                let groupsForTutor = ParseStudIPCSVToJSON.getGroupsForTutors(usePlan);
+                DownloadHelper.downloadTextAsFiletile(JSON.stringify(groupsForTutor, null, 2), "tutorsGroups.json")
+            }} />
+        )
     }
 
     function renderSwitchButton(){
@@ -156,8 +171,10 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             {renderParseStudipFileUpload()}
             <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
             {renderOptimizeButton()}
-            {renderDownloadButton()}
             {renderSwitchButton()}
+            <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
+            {renderDownloadButton()}
+            {renderDownloadGroupsForTutor()}
             <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
                 <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>

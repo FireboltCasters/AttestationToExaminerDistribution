@@ -135,6 +135,9 @@ export default class ParseStudIPCSVToJSON {
     }
 
     static getGroupsForTutors(parsedAsJSON: any){
+        if(!parsedAsJSON) {
+            return {}
+        }
         let tutorNames = Object.keys(parsedAsJSON.tutors)
         let tutorsWithGroups = {}
         let groupNames = Object.keys(parsedAsJSON.groups)
