@@ -85,8 +85,10 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
             group: groupName,
         };
 
+        let cursor = isSelectable(slotToSave, isSelectedAtFirst, isSelectedAtSecond) ? "pointer" : "not-allowed";
+
         return (
-            <div key={groupName} style={{border: '2px solid '+borderColor, marginBottom: 5}} onClick={() => {
+            <div key={groupName} style={{border: '2px solid '+borderColor, marginBottom: 5, cursor: cursor}} onClick={() => {
                 handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
             }}>
                 <div>{"Group: "+groupName}</div>
@@ -95,6 +97,31 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
                 <div>{"Tutor new: "+newSelectedSlot?.tutor}</div>
             </div>
         )
+    }
+
+    function isSelectable(slotToSave: any, isSelectedAtFirst: boolean, isSelectedAtSecond: boolean){
+        if(selectedSlotFirst === null && selectedSlotSecond === null){ // always allow to select first slot
+            return true;
+        }
+        if(JSON.stringify(selectedSlotFirst) === JSON.stringify(slotToSave) || JSON.stringify(selectedSlotSecond) === JSON.stringify(slotToSave)){ // always able to deselect
+            return true;
+        }
+        // at this point we know that we have a selected slot and it is not the same as the slotToSave
+        if(selectedSlotFirst !== null && selectedSlotSecond !== null) { // if both slots are selected, we can't select anything
+            return false;
+        }
+        let isOurTheFirstSlot = JSON.stringify(selectedSlotFirst) === JSON.stringify(slotToSave);
+        let otherSlot = isOurTheFirstSlot ? selectedSlotSecond : selectedSlotFirst;
+
+
+        //@ts-ignore
+        let isOurSelectionAGroup = slotToSave?.group !== undefined;
+        // @ts-ignore
+        let isOtherSelectionAGroup = otherSlot?.group !== undefined;
+        if(isOurSelectionAGroup || isOtherSelectionAGroup){
+            return true;
+        }
+        return false;
     }
 
 
@@ -171,8 +198,10 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
 
         let backgroundColor = isSelected ? "rgb(0, 255, 0)" : "rgb(0, 0, 0)";
 
+        let cursor = isSelectable(slotToSave, isSelectedAtFirst, isSelectedAtSecond) ? "pointer" : "not-allowed";
+
         return (
-            <div key={tutor} style={{border: '2px solid '+backgroundColor, marginBottom: 5}} onClick={() => {
+            <div key={tutor} style={{border: '2px solid '+backgroundColor, marginBottom: 5, cursor: cursor}} onClick={() => {
                 handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
             }}>
                 <div>{"Tutor: "+tutor}</div>
@@ -342,7 +371,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
                                 {renderPlan()}
                             </div>
                             <div style={{display: "flex", flex: 1, flexDirection: "column", backgroundColor: "#EEEEEE"}}>
-                                <MyToolbar handleSwitchSelection={handleSwitchSelection} newPlan={newPlan} setNewPlan={setNewPlan} setOldPlan={setOldPlan} oldPlan={oldPlan} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
+                                <MyToolbar selectedSlotFirst={selectedSlotFirst} selectedSlotSecond={selectedSlotSecond}  handleSwitchSelection={handleSwitchSelection} newPlan={newPlan} setNewPlan={setNewPlan} setOldPlan={setOldPlan} oldPlan={oldPlan} setReloadNumber={setReloadNumber} reloadNumber={reloadNumber} />
                             </div>
                         </div>
                 </div>

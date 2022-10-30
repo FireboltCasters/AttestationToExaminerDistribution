@@ -12,6 +12,8 @@ console.log(jsgraphs);
 
 export interface AppState{
     handleSwitchSelection: any,
+    selectedSlotFirst: any,
+    selectedSlotSecond: any,
     newPlan: any,
     setNewPlan: any,
     setOldPlan: any;
@@ -19,7 +21,7 @@ export interface AppState{
     setReloadNumber?: any,
     reloadNumber?: any
 }
-export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
+export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selectedSlotSecond, handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
 
     function parseStudipCSVToJSON(event: any){
         console.log("parseStudipCSVToJSON");
@@ -139,6 +141,15 @@ export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, s
         return renderedTutors;
     }
 
+    function renderSwitchButton(){
+        let disabled = (selectedSlotFirst && selectedSlotSecond) ? false : true;
+        let label = disabled ? "Switch (select 2)" : "Switch selection";
+
+        return (
+            <Button disabled={disabled} label={label} icon="pi pi-arrows-h" className="p-button-warning" style={{margin: 5}} onClick={() => {handleSwitchSelection()}} />
+        )
+    }
+
     const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
         <div style={{width: "100%", flexGrow: 1, flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 20,paddingTop: 20, paddingRight: 20}}>
@@ -146,7 +157,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({handleSwitchSelection, s
             <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
             {renderOptimizeButton()}
             {renderDownloadButton()}
-            <Button label="Switch Selection" icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleSwitchSelection()}} />
+            {renderSwitchButton()}
             <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
                 <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>
