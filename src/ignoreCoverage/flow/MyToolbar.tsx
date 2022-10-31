@@ -38,7 +38,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
             setOldPlan(json);
             setNewPlan(null);
-            //setReloadNumber(reloadNumber + 1);
+            setReloadNumber(reloadNumber + 1);
         });
         reader.readAsText(file);
     }
@@ -63,14 +63,24 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     }
 
     async function handleExport(){
-       let json = newPlan
+        let usePlan = !!newPlan ? newPlan : oldPlan;
+        
+       let json = JSON.parse(JSON.stringify(usePlan));
+       let groupsNames = Object.keys(json.groups);
+       for(let i = 0; i < groupsNames.length; i++){
+           let groupName = groupsNames[i];
+           let group = json.groups[groupName];
+           let selectedSlot = group.selectedSlot;
+           delete selectedSlot["id"];
+       }
+
        DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json")
     }
 
     function renderParseStudipFileUpload(){
         const parseOptions = {label: 'Parse Stud.IP CSV', icon: 'pi pi-upload', className: 'p-button-warning'};
         return(
-            <FileUpload key={reloadNumber} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
+            <FileUpload key={reloadNumber+JSON.stringify(oldPlan)} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
         )
     }
 
@@ -95,8 +105,9 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     }
 
     function renderDownloadButton(){
-        let disabled = !newPlan;
-        let label = !!newPlan ? "Download" : "No plan to download";
+        let usePlan = newPlan ? newPlan : oldPlan;
+        let label = !!usePlan ? "Download" : "No plan to download";
+        let disabled = !usePlan;
 
         return(
             <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleExport()}} />

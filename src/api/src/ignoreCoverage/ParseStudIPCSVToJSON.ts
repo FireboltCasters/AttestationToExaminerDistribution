@@ -38,9 +38,11 @@ export default class ParseStudIPCSVToJSON {
         let datum = node["Datum"]
         let splits = datum.split(".");
         let date = new Date();
-        date.setFullYear(parseInt(splits[2]))
-        date.setMonth(parseInt(splits[1]) - 1)
-        date.setDate(parseInt(splits[0]))
+
+        date.setFullYear(parseInt(splits[2]), parseInt(splits[1]) - 1, parseInt(splits[0]));
+//        date.setDate(parseInt(splits[0]))
+  //      date.setFullYear(parseInt(splits[2]))
+    //    date.setMonth(parseInt(splits[1]) - 1)
 
         let day = ParseStudIPCSVToJSON.getWeekday(date)
         let tutor = ParseStudIPCSVToJSON.getTutorFromNode(node)
@@ -62,10 +64,17 @@ export default class ParseStudIPCSVToJSON {
         for(const element of nodes) {
             let node = element
             let groupMembers = ParseStudIPCSVToJSON.getGroupMembersFromNode(node)
+
             if(groupMembers != undefined) {
                 let groupId = groupMembers.join(" & ");
+                console.log("------")
+                console.log("groupMembers: "+groupMembers)
+
                 // @ts-ignore
                 let slotsForGroup = ParseStudIPCSVToJSON.getSlotFromNode(node)
+                console.log("slotsForGroup");
+                console.log(slotsForGroup);
+
                 // @ts-ignore
                 if(!groups[groupId]) {
                     // @ts-ignore

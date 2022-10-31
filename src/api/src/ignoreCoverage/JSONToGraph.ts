@@ -44,7 +44,9 @@ export default class JSONToGraph {
         let timeslots = [];
         for(let i = startHour; i < endHour; i++){
             for(let j = 0; j < 60; j+=minuteStep){
-                timeslots.push(i + ":" + (j < 10 ? "0" + j : j));
+                let hour = i < 10 ? "0" + i : i;
+                let minute = j < 10 ? "0" + j : j;
+                timeslots.push(hour + ":" + minute);
             }
         }
         return timeslots;
