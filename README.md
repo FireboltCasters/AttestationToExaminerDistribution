@@ -9,22 +9,9 @@
   <a href="https://github.com/google/gts" alt="Google TypeScript Style"><img src="https://img.shields.io/badge/code%20style-google-blueviolet.svg"/></a>
   <a href="https://shields.io/" alt="Google TypeScript Style"><img src="https://img.shields.io/badge/uses-TypeScript-blue.svg"/></a>
   <a href="https://github.com/marketplace/actions/lint-action"><img src="https://img.shields.io/badge/uses-Lint%20Action-blue.svg"/></a>
+    <a href="https://jessemillar.com/r/man-hours"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fmh.jessemillar.com%2Fhours%3Frepo%3Dhttps%3A%2F%2Fgithub.com%2FFireboltCasters%2FAttestationToExaminerDistribution" alt="size" /></a>
 </p>
 
-
-<p align="center">
-  <a href="https://github.com/FireboltCasters/AttestationToExaminerDistribution/actions/workflows/npmPublish.yml"><img src="https://github.com/FireboltCasters/AttestationToExaminerDistribution/actions/workflows/npmPublish.yml/badge.svg" alt="Npm publish" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=alert_status" alt="Quality Gate" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=bugs" alt="Bugs" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=coverage" alt="Coverage" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=code_smells" alt="Code Smells" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=duplicated_lines_density" alt="Duplicated Lines (%)" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=sqale_rating" alt="Maintainability Rating" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=reliability_rating" alt="Reliability Rating" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=security_rating" alt="Security Rating" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=sqale_index" alt="Technical Debt" /></a>
-  <a href="https://sonarcloud.io/dashboard?id=FireboltCasters_AttestationToExaminerDistribution"><img src="https://sonarcloud.io/api/project_badges/measure?project=FireboltCasters_AttestationToExaminerDistribution&metric=vulnerabilities" alt="Vulnerabilities" /></a>
-</p>
 
 ## Demo
 
