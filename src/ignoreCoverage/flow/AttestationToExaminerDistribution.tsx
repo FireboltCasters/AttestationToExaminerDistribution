@@ -127,6 +127,8 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
 
     async function handleSwitchSelection(){
         let usePlan = newPlan ? newPlan : oldPlan;
+        let usePlanCopy = JSON.parse(JSON.stringify(usePlan));
+        usePlan = usePlanCopy;
         if(selectedSlotFirst && selectedSlotSecond){
             // @ts-ignore
             let isFirstSelectionAGroup = selectedSlotFirst?.group !== undefined;

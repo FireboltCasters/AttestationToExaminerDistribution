@@ -39,10 +39,14 @@ export default class GraphHelper {
     }
 
     static getMinimalRequiredTutorCapacity(unoptimizedJSON: any): number {
-        //console.log("getMinimalRequiredTutorCapacity");
+//        console.log("getMinimalRequiredTutorCapacity");
         let amountGroups = Object.keys(unoptimizedJSON.groups).length;
+  //      console.log("Amount Groups: "+amountGroups);
 
         let initialTutorCapacity = amountGroups;
+    //    console.log("unoptimizedJSON")
+      //  console.log(unoptimizedJSON);
+
         let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, initialTutorCapacity);
 
         let source = graphAndVerticeMaps.source;
@@ -51,7 +55,7 @@ export default class GraphHelper {
         let g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
         let maxFlow = GraphHelper.getMaxFlow(g, source, sink);
 
-        //console.log("maxFlow with "+initialTutorCapacity+" tutors ==> "+maxFlow);
+//        console.log("maxFlow with "+initialTutorCapacity+" tutors ==> "+maxFlow);
         // binary search for the minimum tutor capacity
         let lowestTutorCapacity = initialTutorCapacity;
         let nextTutorCapacity = Math.floor(initialTutorCapacity / 2);
@@ -60,16 +64,16 @@ export default class GraphHelper {
             let newgraphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, nextTutorCapacity);
             let newG = GraphHelper.getJSGraphsFlowNetwork(newgraphAndVerticeMaps);
             let newMaxFlow = GraphHelper.getMaxFlow(newG, source, sink);
-            //console.log("maxFlow with "+nextTutorCapacity+" tutors ==> "+newMaxFlow);
+ //           console.log("maxFlow with "+nextTutorCapacity+" tutors ==> "+newMaxFlow);
             if(newMaxFlow >= maxFlow) {
 //                console.log("newMaxFlow == maxFlow so we can lower the tutor capacity");
                 lowestTutorCapacity = nextTutorCapacity;
                 nextTutorCapacity = Math.floor(nextTutorCapacity / 2);
             } else {
-  //              console.log("newMaxFlow != maxFlow so we have to increase the tutor capacity");
+    //            console.log("newMaxFlow != maxFlow so we have to increase the tutor capacity");
                 nextTutorCapacity = Math.floor((lowestTutorCapacity + nextTutorCapacity) / 2);
                 if(lastNextTutorCapacity == nextTutorCapacity) {
-    //                console.log("lastNextTutorCapacity == nextTutorCapacity so we can't lower the tutor capacity anymore");
+   //                 console.log("lastNextTutorCapacity == nextTutorCapacity so we can't lower the tutor capacity anymore");
                     nextTutorCapacity = lowestTutorCapacity;
                     break;
                 }
@@ -130,7 +134,9 @@ export default class GraphHelper {
     }
 
     static getOptimizedDistribution(unoptimizedJSON: any){
+        console.log("getOptimizedDistribution");
         let minTutorCapacity = GraphHelper.getMinimalRequiredTutorCapacity(unoptimizedJSON);
+        console.log("minTutorCapacity: "+minTutorCapacity);
         let tutorDistribution = GraphHelper.getTutorDistribution(unoptimizedJSON, minTutorCapacity);
         return tutorDistribution;
     }

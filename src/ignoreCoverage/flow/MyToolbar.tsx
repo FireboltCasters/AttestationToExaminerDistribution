@@ -2,6 +2,8 @@ import React, {useState} from 'react';
 import {FunctionComponent} from "react";
 import {Toolbar} from "primereact/toolbar";
 import { FileUpload } from 'primereact/fileupload';
+import { InputTextarea } from 'primereact/inputtextarea';
+import { Dialog } from 'primereact/dialog';
 import {Button} from "primereact/button";
 import DownloadHelper from "../helper/DownloadHelper";
 import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
@@ -23,6 +25,9 @@ export interface AppState{
     reloadNumber?: any
 }
 export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selectedSlotSecond, handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
+
+    const [displayBasic, setDisplayBasic] = useState(false);
+    const [textImportValue, setTextImportValue] = useState("");
 
     function parseStudipCSVToJSON(event: any){
         console.log("parseStudipCSVToJSON");
@@ -64,7 +69,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
     async function handleExport(){
         let usePlan = !!newPlan ? newPlan : oldPlan;
-        
+
        let json = JSON.parse(JSON.stringify(usePlan));
        let groupsNames = Object.keys(json.groups);
        for(let i = 0; i < groupsNames.length; i++){
@@ -85,14 +90,14 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     }
 
     async function handleOptimize(){
-        console.log("handleOptimize");
-        console.log(oldPlan);
         let optimizedPlan = GraphHelper.getOptimizedDistribution(oldPlan);
-        console.log("optimizedPlan");
-        console.log(optimizedPlan);
-
         setNewPlan(optimizedPlan);
-        //setReloadNumber(reloadNumber+1)
+    }
+
+    function renderImportTextButton(){
+        return (
+            <Button label="Import Text" icon="pi pi-upload" style={{margin: 5}} onClick={() => {console.log("setDisplayBasic"); setDisplayBasic(true)}} />
+            )
     }
 
     function renderOptimizeButton(){
@@ -114,41 +119,46 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
-    function countGroupsForTutor(plan: any, tutor: string){
-        if(!plan){
-            return undefined;
+    function renderTutorAuslastung(){
+        let tutorsDict = oldPlan?.tutors || {};
+        let tutorNamesDict = {}
+        let tutorNames = Object.keys(tutorsDict);
+        for(let tutorName of tutorNames){
+            // @ts-ignore
+            tutorNamesDict[tutorName] = tutorName;
         }
 
-        let amount = 0;
-        let groups = plan?.groups || {};
-        let groupNames = Object.keys(groups);
-        for(let groupName of groupNames){
-            let group = groups[groupName];
+        let groupsDict = oldPlan?.groups || {};
+        let groups = Object.keys(groupsDict);
+        for(let group_key of groups){
+            let group = groupsDict[group_key];
             let selectedSlot = group?.selectedSlot;
-            if(selectedSlot?.tutor === tutor){
-                amount++;
+            let tutor = selectedSlot?.tutor;
+            if(tutor){
+                // @ts-ignore
+                if(!tutorNamesDict[tutor]){
+                    // @ts-ignore
+                    tutorNamesDict[tutor] = "Error: Tutor not known: "+tutor;
+                }
             }
         }
 
-
-        return amount;
-    }
-
-    function renderTutorAuslastung(){
-        let tutorsDict = oldPlan?.tutors || {};
-        let tutors = Object.keys(tutorsDict);
+        let tutors = Object.keys(tutorNamesDict);
         let renderedTutors = [];
 
         let groupsForTutorInOldPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan)
         let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan)
-        for(let tutor of tutors){
+        for(let tutor_key of tutors){
+            // @ts-ignore
+            let tutor_name = tutorNamesDict[tutor_key];
+            let tutor = tutor_key;
             //@ts-ignore
             let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {})?.length;
             //@ts-ignore
             let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex"}}>
-                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor+": "}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+": "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
@@ -242,6 +252,34 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
+    function renderImportTextDialog(){
+        const footer = (
+            <div>
+                <Button label="Yes" icon="pi pi-check" onClick={() => {
+                    if(!!textImportValue && textImportValue.length > 0){
+                        try{
+                            let parsed = JSON.parse(textImportValue);
+                            setOldPlan(parsed);
+                            setDisplayBasic(false);
+                        } catch (err){
+                            console.error(err);
+                        }
+                    }
+                }} />
+                <Button label="No" icon="pi pi-times" onClick={() => {setDisplayBasic(false)}} />
+            </div>
+        );
+
+        return(
+            <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footer} onHide={() => setDisplayBasic(false)}>
+                <p>Please paste the JSON content as text inside</p>
+                <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setTextImportValue(e.target.value)} >
+
+                </InputTextarea>
+            </Dialog>
+        )
+    }
+
     function renderSpitLine(){
         return (
             <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
@@ -261,10 +299,16 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     const leftContents = (
         <div style={{width: "100%", flexGrow: 1, flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 20,paddingTop: 20, paddingRight: 20}}>
             {renderParseStudipFileUpload()}
+            {renderImportTextButton()}
             <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
+
+            {renderSpitLine()}
+
             {renderOptimizeButton()}
             {renderSwitchButton()}
+
             {renderSpitLine()}
+
             {renderDownloadButton()}
             {renderDownloadGroupsForTutor()}
             {renderDownloadAsStudipHTMLTableButton()}
@@ -279,6 +323,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                 {renderTutorAuslastung()}
             </div>
             {renderSpitLine()}
+            {renderImportTextDialog()}
         </div>
     );
 
