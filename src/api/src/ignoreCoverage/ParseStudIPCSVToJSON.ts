@@ -129,11 +129,18 @@ export default class ParseStudIPCSVToJSON {
         let result = {
             groups: {},
             tutors: {},
+            tutorMultipliers: {},
         };
 
         let tutorDicts = ParseStudIPCSVToJSON.getAllTutorsDict(output)
         // @ts-ignore
         result.tutors = tutorDicts;
+
+        let tutorNames = Object.keys(tutorDicts)
+        for(const tutorName of tutorNames) {
+            // @ts-ignore
+            result.tutorMultipliers[tutorName] = 1;
+        }
 
 
         let groupDicts = ParseStudIPCSVToJSON.getAllGroups(output)

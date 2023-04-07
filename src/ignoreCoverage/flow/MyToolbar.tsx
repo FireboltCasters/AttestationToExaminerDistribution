@@ -175,10 +175,11 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {})?.length;
             //@ts-ignore
             let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
+            let tutorMultiplier = oldPlan?.tutorMultipliers?.[tutor] || 1;
             let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutorsDict[tutor]);
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
-                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+": "}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+" ("+tutorMultiplier+")"+": "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
@@ -343,7 +344,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             </div>
             {renderSpitLine()}
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
-                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor"}</div>
+                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor (multiplier)"}</div>
                 <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>
                 <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
                 <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"after"}</div>

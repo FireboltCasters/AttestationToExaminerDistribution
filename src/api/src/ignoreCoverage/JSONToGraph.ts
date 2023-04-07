@@ -235,11 +235,18 @@ export default class JSONToGraph {
             //@ts-ignore
             result.graph[tutorVertice] = result.graph[tutorVertice] || {};
 
+            let multiplier = 1;
+            let individualMultiplier = parsedJSON?.tutorMultipliers?.[tutor];
+            if(individualMultiplier !== undefined) {
+                multiplier = individualMultiplier;
+            }
+            let individualTutorCapacity = tutorCapacity * multiplier;
+
             //console.log("Adding edge from tutorVertice: "+tutorVertice+" to sink: "+sink)
             //@ts-ignore
             result.graph[tutorVertice][sink] = {
                 flow: 0,
-                capacity: tutorCapacity,
+                capacity: individualTutorCapacity,
                 from: tutorVertice,
                 type: "tutor-to-sink",
                 to: sink,
