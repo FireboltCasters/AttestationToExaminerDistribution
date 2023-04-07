@@ -240,7 +240,7 @@ export default class JSONToGraph {
             if(individualMultiplier !== undefined) {
                 multiplier = individualMultiplier;
             }
-            let individualTutorCapacity = tutorCapacity * multiplier;
+            let individualTutorCapacity = Math.floor(tutorCapacity * multiplier);
 
             //console.log("Adding edge from tutorVertice: "+tutorVertice+" to sink: "+sink)
             //@ts-ignore
