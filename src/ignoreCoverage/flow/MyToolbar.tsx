@@ -163,7 +163,11 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
         let groupsForTutorInOldPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan)
         let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan)
+
+        let index = 0;
         for(let tutor_key of tutors){
+            index++;
+            let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
             // @ts-ignore
             let tutor_name = tutorNamesDict[tutor_key];
             let tutor = tutor_key;
@@ -173,7 +177,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
             let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutorsDict[tutor]);
             renderedTutors.push(
-                <div key={tutor} style={{flexDirection: "row", display: "flex"}}>
+                <div key={tutor} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
                     <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+": "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
@@ -339,12 +343,12 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             </div>
             {renderSpitLine()}
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
-                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>
-                <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"vorher"}</div>
+                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor"}</div>
+                <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>
                 <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"nachher"}</div>
+                <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"after"}</div>
                 <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"Angebote"}</div>
+                <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"avail. slots"}</div>
             </div>
             <div style={{width: "100%"}}>
                 {renderTutorAuslastung()}
