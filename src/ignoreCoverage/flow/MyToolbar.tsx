@@ -85,7 +85,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     function renderParseStudipFileUpload(){
         const parseOptions = {label: 'Parse Stud.IP CSV', icon: 'pi pi-upload', className: 'p-button-warning'};
         return(
-            <FileUpload key={reloadNumber+JSON.stringify(oldPlan)} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5}} />
+            <FileUpload key={reloadNumber+JSON.stringify(oldPlan)} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5, display: "inline-block"}} />
         )
     }
 
@@ -96,7 +96,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
     function renderImportTextButton(){
         return (
-            <Button label="Import Text" icon="pi pi-upload" style={{margin: 5}} onClick={() => {console.log("setDisplayBasic"); setDisplayBasic(true)}} />
+            <Button label="Import Text" icon="pi pi-upload" style={{margin: 5, display: "inline-block"}} onClick={() => {console.log("setDisplayBasic"); setDisplayBasic(true)}} />
             )
     }
 
@@ -119,8 +119,23 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
+    function getAmountOfferedSlotsForTutor(tutorsWeekdaysDict: any){
+        if(!tutorsWeekdaysDict){
+            return 0;
+        }
+        let weekdays = Object.keys(tutorsWeekdaysDict) || [];
+        let amount = 0;
+        for(let weekday of weekdays){
+            let slots = tutorsWeekdaysDict[weekday] || {};
+            let amountSlotsForWeekday = Object.keys(slots).length;
+            amount += amountSlotsForWeekday;
+        }
+        return amount;
+    }
+
     function renderTutorAuslastung(){
         let tutorsDict = oldPlan?.tutors || {};
+        console.log(tutorsDict)
         let tutorNamesDict = {}
         let tutorNames = Object.keys(tutorsDict);
         for(let tutorName of tutorNames){
@@ -156,12 +171,15 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {})?.length;
             //@ts-ignore
             let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
+            let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutorsDict[tutor]);
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex"}}>
                     <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+": "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
                     <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" | "}</div>
+                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{amountOfferedSlotsForTutor}</div>
                 </div>
             )
         }
@@ -282,7 +300,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
     function renderSpitLine(){
         return (
-            <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 20, marginBottom: 20}}></div>
+            <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 10, marginBottom: 10}}></div>
         )
     }
 
@@ -297,27 +315,36 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
     const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
-        <div style={{width: "100%", flexGrow: 1, flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 20,paddingTop: 20, paddingRight: 20}}>
-            {renderParseStudipFileUpload()}
-            {renderImportTextButton()}
-            <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5}} />
+        <div style={{width: "100%", flexGrow: 1, flexDirection: "column", display: "flex", flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 10,paddingTop: 20, paddingRight: 10}}>
+            <div>
+
+                {renderParseStudipFileUpload()}
+                {renderImportTextButton()}
+                <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5, display: "inline-block"}} />
+            </div>
 
             {renderSpitLine()}
 
-            {renderOptimizeButton()}
-            {renderSwitchButton()}
+            <div>
+                {renderOptimizeButton()}
+                {renderSwitchButton()}
+            </div>
 
             {renderSpitLine()}
 
-            {renderDownloadButton()}
-            {renderDownloadGroupsForTutor()}
-            {renderDownloadAsStudipHTMLTableButton()}
+            <div>
+                {renderDownloadButton()}
+                {renderDownloadGroupsForTutor()}
+                {renderDownloadAsStudipHTMLTableButton()}
+            </div>
             {renderSpitLine()}
             <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
                 <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor Auslastung"}</div>
                 <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"vorher"}</div>
                 <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
                 <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"nachher"}</div>
+                <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"Angebote"}</div>
             </div>
             <div style={{width: "100%"}}>
                 {renderTutorAuslastung()}
