@@ -61,9 +61,37 @@ export default class ParseStudIPCSVToJSON {
 
     static getAllGroups(nodes: any): any {
         let groups = {}
+        let tutorSlotToGroupMembersInformations = {}
+
+        // since not all group members are in the same row, we need to collect them first
         for(const element of nodes) {
             let node = element
-            let groupMembers = ParseStudIPCSVToJSON.getGroupMembersFromNode(node)
+            let slotsForGroup = ParseStudIPCSVToJSON.getSlotFromNode(node)
+            let tutor = slotsForGroup.tutor
+            let day = slotsForGroup.day
+            let time = slotsForGroup.time
+            let slotId = tutor + "-" + day + "-" + time // get the slot id
+            // @ts-ignore
+            let tutorSlotToGroupMembersInformation = tutorSlotToGroupMembersInformations[slotId] || {
+                slot: slotsForGroup,
+                groupMembers: []
+            }
+
+            let members = tutorSlotToGroupMembersInformation.groupMembers
+            let groupMember = ParseStudIPCSVToJSON.getGroupMemberFromNode(node) // get the group member
+            members.push(groupMember) // add the group member to the list of group members
+            tutorSlotToGroupMembersInformation.groupMembers = members
+            // @ts-ignore
+            tutorSlotToGroupMembersInformations[slotId] = tutorSlotToGroupMembersInformation
+        }
+
+        let slotKeys = Object.keys(tutorSlotToGroupMembersInformations)
+        for(const slotKey of slotKeys) {
+            // @ts-ignore
+            let tutorSlotToGroupMembersInformation = tutorSlotToGroupMembersInformations[slotKey]
+            let slotsForGroup = tutorSlotToGroupMembersInformation.slot
+
+            let groupMembers = tutorSlotToGroupMembersInformation.groupMembers
 
             if(groupMembers != undefined) {
                 let groupId = groupMembers.join(" & ");
@@ -71,7 +99,6 @@ export default class ParseStudIPCSVToJSON {
                 console.log("groupMembers: "+groupMembers)
 
                 // @ts-ignore
-                let slotsForGroup = ParseStudIPCSVToJSON.getSlotFromNode(node)
                 console.log("slotsForGroup");
                 console.log(slotsForGroup);
 
@@ -108,13 +135,10 @@ export default class ParseStudIPCSVToJSON {
         return groups
     }
 
-    static getGroupMembersFromNode(node: any): any {
+    static getGroupMemberFromNode(node: any): any {
         let person = node["Person"]
         if(person == "") {
             return undefined
-        }
-        if(person != undefined) {
-            person = person.split("\n")
         }
         return person
     }

@@ -123,7 +123,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
         // @ts-ignore
         let tutorAuslastung = Object.keys(groupsForTutorInNewPlan[tutor_key] || {})?.length;
-        
+
         let tutorsDict = oldPlan?.tutors || {};
         let tutorsWeekdaysDict = tutorsDict[tutor_key] || {};
 
