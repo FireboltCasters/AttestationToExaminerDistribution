@@ -119,18 +119,24 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
-    function getAmountOfferedSlotsForTutor(tutorsWeekdaysDict: any){
-        if(!tutorsWeekdaysDict){
-            return 0;
-        }
+    function getAmountOfferedSlotsForTutor(tutor_key: string, oldPlan: any){
+        let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
+        // @ts-ignore
+        let tutorAuslastung = Object.keys(groupsForTutorInNewPlan[tutor_key] || {})?.length;
+        
+        let tutorsDict = oldPlan?.tutors || {};
+        let tutorsWeekdaysDict = tutorsDict[tutor_key] || {};
+
         let weekdays = Object.keys(tutorsWeekdaysDict) || [];
-        let amount = 0;
+        let amountFreeSlots = 0;
         for(let weekday of weekdays){
             let slots = tutorsWeekdaysDict[weekday] || {};
             let amountSlotsForWeekday = Object.keys(slots).length;
-            amount += amountSlotsForWeekday;
+            amountFreeSlots += amountSlotsForWeekday;
         }
-        return amount;
+
+        let totalSlots = amountFreeSlots + tutorAuslastung;
+        return totalSlots;
     }
 
     function renderTutorAuslastung(){
@@ -176,7 +182,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             //@ts-ignore
             let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
             let tutorMultiplier = oldPlan?.tutorMultipliers?.[tutor] || 1;
-            let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutorsDict[tutor]);
+            let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutor, oldPlan);
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
                     <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+" ("+tutorMultiplier+")"+": "}</div>
