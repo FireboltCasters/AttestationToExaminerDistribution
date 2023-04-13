@@ -120,9 +120,9 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     }
 
     function getAmountOfferedSlotsForTutor(tutor_key: string, oldPlan: any){
-        let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
+        // let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
         // @ts-ignore
-        let tutorAuslastung = Object.keys(groupsForTutorInNewPlan[tutor_key] || {})?.length;
+        // let tutorAuslastung = Object.keys(groupsForTutorInNewPlan[tutor_key] || {})?.length;
 
         let tutorsDict = oldPlan?.tutors || {};
         let tutorsWeekdaysDict = tutorsDict[tutor_key] || {};
@@ -135,7 +135,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             amountFreeSlots += amountSlotsForWeekday;
         }
 
-        let totalSlots = amountFreeSlots + tutorAuslastung;
+        let totalSlots = amountFreeSlots;
         return totalSlots;
     }
 
