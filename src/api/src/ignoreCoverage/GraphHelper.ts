@@ -93,6 +93,10 @@ export default class GraphHelper {
 
         // Step 1: Get the tutors current individual capacities
         let currentDictTutorToIndividualDiff = {};
+
+        let previousTutorDistribution = GraphHelper.getDictTutorToAmountGroups(unoptimizedJSON);
+        console.log("previousTutorDistribution: ");
+        console.log(previousTutorDistribution);
         let currentOptimizedJSON = JSON.parse(JSON.stringify(unoptimizedJSON));
 
         let keepOptimizing = true;
@@ -140,6 +144,9 @@ export default class GraphHelper {
         console.log("=============================================");
         console.log("dictTutorToIndividualDiff: ");
         console.log(currentDictTutorToIndividualDiff);
+        let finalTutorDistribution = GraphHelper.getDictTutorToAmountGroups(currentOptimizedJSON);
+        console.log("finalTutorDistribution: ");
+        console.log(finalTutorDistribution);
 
         return currentOptimizedJSON;
     }
