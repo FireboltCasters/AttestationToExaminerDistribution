@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {ReactNode, useState} from 'react';
 import {FunctionComponent} from "react";
 import {Toolbar} from "primereact/toolbar";
 import { FileUpload } from 'primereact/fileupload';
@@ -11,7 +11,6 @@ import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
 import jsgraphs from "js-graph-algorithms";
 import {JSONToGraph} from "../../api/src";
-console.log(jsgraphs);
 
 export interface AppState{
     handleSwitchSelection: any,
@@ -141,7 +140,6 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
     function renderTutorAuslastung(){
         let tutorsDict = oldPlan?.tutors || {};
-        console.log(tutorsDict)
         let tutorNamesDict = {}
         let tutorNames = Object.keys(tutorsDict);
         for(let tutorName of tutorNames){
@@ -185,12 +183,12 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutor, oldPlan);
             renderedTutors.push(
                 <div key={tutor} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
-                    <div key={tutor} style={{flexGrow: 1, flex: 4}}>{tutor_name+" ("+tutorMultiplier+")"+": "}</div>
-                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
-                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
-                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
-                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{" | "}</div>
-                    <div key={tutor} style={{flexGrow: 1, flex: 1}}>{amountOfferedSlotsForTutor}</div>
+                    <div key={"tutorName"} style={{flexGrow: 1, flex: 4}}>{tutor_name+" ("+tutorMultiplier+")"+": "}</div>
+                    <div key={"tutorAuslastung"} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
+                    <div key={"split1"} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
+                    <div key={"tutorAuslastungNew"} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
+                    <div key={"split2"} style={{flexGrow: 1, flex: 1}}>{" | "}</div>
+                    <div key={"amountSlots"} style={{flexGrow: 1, flex: 1}}>{amountOfferedSlotsForTutor}</div>
                 </div>
             )
         }
@@ -324,6 +322,108 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
+    function getChanges(){
+        let groups = newPlan?.groups || {};
+        let groupNames = Object.keys(groups);
+        let changes: any[] = [];
+        if(!!oldPlan && !!newPlan){
+            for(let groupName of groupNames){
+                let groupInOldPlan = oldPlan?.groups?.[groupName];
+                let groupInNewPlan = newPlan?.groups?.[groupName];
+                let oldSlot = groupInOldPlan?.selectedSlot;
+                let newSlot = groupInNewPlan?.selectedSlot;
+                let tutorInOldPlan = oldSlot?.tutor;
+                let tutorInNewPlan = newSlot?.tutor;
+                let tutorChanged = tutorInOldPlan !== tutorInNewPlan;
+                if(tutorChanged){
+                    let change = {
+                        groupName: groupName,
+                        oldSlot: oldSlot,
+                        newSlot: newSlot,
+                    };
+                    changes.push(change);
+                }
+            }
+        }
+        return changes;
+    }
+
+    function renderChange(changeItem: any, backgroundColor: any): ReactNode{
+        let key = JSON.stringify(changeItem);
+        let oldSlot = changeItem?.oldSlot;
+        let newSlot = changeItem?.newSlot;
+        let day = oldSlot?.day;
+        let time = oldSlot?.time;
+        let dayAndTime = day + " " + time;
+        let groupName = changeItem?.groupName;
+        let tutorInOldPlan = oldSlot?.tutor;
+        let tutorInNewPlan = newSlot?.tutor;
+
+        return(
+            <div key={key} style={{flexDirection: "row", display: "flex", paddingBottom: 20, backgroundColor: backgroundColor}}>
+                <div key={"day & time"} style={{flexGrow: 1, flex: 3}}>{dayAndTime}</div>
+                <div key={"group"} style={{flexGrow: 1, flex: 3}}>{groupName}</div>
+                <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                <div key={"before"} style={{flexGrow: 1, flex: 3}}>{tutorInOldPlan}</div>
+                <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{"-->"}</div>
+                <div key={"after"} style={{flexGrow: 1, flex: 3}}>{tutorInNewPlan}</div>
+            </div>
+        )
+    }
+
+    function renderChanges(){
+        let changes = getChanges();
+
+        let amountOfChanges = changes.length;
+        let renderedChanges: ReactNode[] = [];
+        let index = 0;
+        for(let change of changes){
+            index++;
+            let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
+            renderedChanges.push(renderChange(change, backgroundColor));
+        }
+
+        return(
+            <>
+                <div>{"Changes ("+amountOfChanges+")"}</div>
+                <div key={"changesHeader"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
+                    <div key={"day & time"} style={{flexGrow: 1, flex: 3}}>{"Day & Time"}</div>
+                    <div key={"group"} style={{flexGrow: 1, flex: 3}}>{"Group"}</div>
+                    <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                    <div key={"before"} style={{flexGrow: 1, flex: 3}}>{"before"}</div>
+                    <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                    <div key={"after"} style={{flexGrow: 1, flex: 3}}>{"after"}</div>
+                </div>
+                <div style={{width: "100%"}}>
+                    {renderedChanges}
+                </div>
+            </>
+        )
+    }
+
+    function renderTutorInformations(){
+        let amountOfGroups = Object.keys(oldPlan?.groups || {}).length;
+
+        return(
+            <>
+                <div>{"Amount Groups: "+amountOfGroups}</div>
+                <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
+                    <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor (multiplier)"}</div>
+                    <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>
+                    <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                    <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"after"}</div>
+                    <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{""}</div>
+                    <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"avail. slots"}</div>
+                </div>
+                <div style={{width: "100%"}}>
+                    {renderTutorAuslastung()}
+                </div>
+                {renderSpitLine()}
+                {renderChanges()}
+            </>
+        )
+    }
+
     const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
         <div style={{width: "100%", flexGrow: 1, flexDirection: "column", display: "flex", flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 10,paddingTop: 20, paddingRight: 10}}>
@@ -349,17 +449,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                 {renderDownloadAsStudipHTMLTableButton()}
             </div>
             {renderSpitLine()}
-            <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
-                <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor (multiplier)"}</div>
-                <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>
-                <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"after"}</div>
-                <div key={"space"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"avail. slots"}</div>
-            </div>
-            <div style={{width: "100%"}}>
-                {renderTutorAuslastung()}
-            </div>
+            {renderTutorInformations()}
             {renderSpitLine()}
             {renderImportTextDialog()}
         </div>

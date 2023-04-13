@@ -79,8 +79,10 @@ export default class ParseStudIPCSVToJSON {
 
             let members = tutorSlotToGroupMembersInformation.groupMembers
             let groupMember = ParseStudIPCSVToJSON.getGroupMemberFromNode(node) // get the group member
-            members.push(groupMember) // add the group member to the list of group members
-            tutorSlotToGroupMembersInformation.groupMembers = members
+            if(!!groupMember){
+                members.push(groupMember) // add the group member to the list of group members
+                tutorSlotToGroupMembersInformation.groupMembers = members
+            }
             // @ts-ignore
             tutorSlotToGroupMembersInformations[slotId] = tutorSlotToGroupMembersInformation
         }
@@ -93,14 +95,8 @@ export default class ParseStudIPCSVToJSON {
 
             let groupMembers = tutorSlotToGroupMembersInformation.groupMembers
 
-            if(groupMembers != undefined) {
+            if(groupMembers != undefined && groupMembers.length>0) {
                 let groupId = groupMembers.join(" & ");
-                console.log("------")
-                console.log("groupMembers: "+groupMembers)
-
-                // @ts-ignore
-                console.log("slotsForGroup");
-                console.log(slotsForGroup);
 
                 // @ts-ignore
                 if(!groups[groupId]) {
@@ -137,10 +133,14 @@ export default class ParseStudIPCSVToJSON {
 
     static getGroupMemberFromNode(node: any): any {
         let person = node["Person"]
+        console.log("person: "+JSON.stringify(person));
         if(person == "") {
             return undefined
         }
-        return person
+        if(person.length>0){
+            return person
+        }
+        return undefined
     }
 
     static getTutorFromSlot(slot: string): string {

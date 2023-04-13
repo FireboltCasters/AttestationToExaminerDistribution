@@ -39,8 +39,6 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
 
     function handleSelect(slotToSave: any, isSelectedAtFirst: boolean, isSelectedAtSecond: boolean){
         if(selectedSlotFirst === null){
-            console.log("Save first slot");
-            console.log(slotToSave)
             //@ts-ignore
             setSelectedSlotFirst(slotToSave);
             //@ts-ignore
@@ -67,7 +65,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
             tutorChanged = true;
         }
 
-        let borderColor = tutorChanged ? "rgb(255, 0, 0)" : "rgb(0, 0, 0)";
+        let borderColor = tutorChanged ? "red" : "black";
         //@ts-ignore
         let isSelectedAtFirst = selectedSlotFirst?.group === groupName;
         //@ts-ignore
@@ -75,7 +73,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         let isSelected = isSelectedAtFirst || isSelectedAtSecond;
 
         if(isSelected){
-            borderColor = "rgb(0, 255, 0)";
+            borderColor = "green";
         }
 
         let slotToSave = {
@@ -298,9 +296,6 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         let timeslotFlex = 1;
         let renderedTimeslots = [];
 
-        let usePlan = !!newPlan ? newPlan : oldPlan;
-        console.log(usePlan);
-
         renderedTimeslots.push(
             <div key={"header"} style={{borderWidth: 2, borderColor: "black", flexDirection: "row", display: "flex", width: "100%", flex: 1, backgroundColor: "green"}}>
                 <div key={"Test"} style={{border: '2px solid rgba(0, 0, 0, 0.05)', flexGrow: 1, flex: timeslotFlex, backgroundColor: "white", alignContent: "center"}}>
@@ -312,7 +307,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         for(let i = 0; i < timeslots.length; i++){
             let timeslot = timeslots[i];
             renderedTimeslots.push(
-                <div key={timeslot} style={{borderWidth: 2, borderColor: "black", flexDirection: "row", display: "flex", width: "100%", flex: 1, backgroundColor: "green"}}>
+                <div key={JSON.stringify(timeslot)} style={{borderWidth: 2, borderColor: "black", flexDirection: "row", display: "flex", width: "100%", flex: 1, backgroundColor: "green"}}>
                     <div key={"Test"} style={{border: '2px solid rgba(0, 0, 0, 0.05)', flexGrow: 1, flex: timeslotFlex, backgroundColor: "white", alignContent: "center"}}>
                         {""+timeslot}
                     </div>
@@ -342,7 +337,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
         let renderedTimeslots = renderTimeslots();
 
         return (
-            <div style={{backgroundColor: "white", flex: 1}}>
+            <div style={{backgroundColor: "white", flex: 1}} key={"renderedPLan"}>
                 <div style={{marginLeft: 20}}><h2>{"Attestation to Examiner Distribution"}</h2></div>
                 {renderedTimeslots}
             </div>

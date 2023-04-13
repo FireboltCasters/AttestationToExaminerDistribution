@@ -23,14 +23,11 @@ export default class GraphHelper {
                 let from = edgeInformation.from;
                 let to = edgeInformation.to;
 
-                //console.log("Adding edge from "+from+" to "+to+" with capacity "+capacity+" and flow "+flow);
                 //@ts-ignore
                 g.addEdge(new jsgraphs.FlowEdge(fromId, toId, capacity));
                 amountEdges++;
             }
         }
-
-//        console.log("amountEdges: "+amountEdges);
 
         g.node(0).label = 'Source';
         g.node(1).label = 'Sink';
@@ -38,14 +35,14 @@ export default class GraphHelper {
         return g;
     }
 
-    static getMinimalRequiredTutorCapacity(unoptimizedJSON: any): number {
-//        console.log("getMinimalRequiredTutorCapacity");
+    /**
+     * Returns the maximum flow of the given graph by reducing the tutor capacity until the maximum flow is still reached.
+     * @param unoptimizedJSON
+     */
+    static getTutorCapacityWhereAllHaveSameMaximum(unoptimizedJSON: any): number {
         let amountGroups = Object.keys(unoptimizedJSON.groups).length;
-  //      console.log("Amount Groups: "+amountGroups);
 
         let initialTutorCapacity = amountGroups;
-    //    console.log("unoptimizedJSON")
-      //  console.log(unoptimizedJSON);
 
         let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, initialTutorCapacity);
 
@@ -55,7 +52,6 @@ export default class GraphHelper {
         let g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
         let maxFlow = GraphHelper.getMaxFlow(g, source, sink);
 
-//        console.log("maxFlow with "+initialTutorCapacity+" tutors ==> "+maxFlow);
         // binary search for the minimum tutor capacity
         let lowestTutorCapacity = initialTutorCapacity;
         let nextTutorCapacity = Math.floor(initialTutorCapacity / 2);
@@ -64,16 +60,15 @@ export default class GraphHelper {
             let newgraphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, nextTutorCapacity);
             let newG = GraphHelper.getJSGraphsFlowNetwork(newgraphAndVerticeMaps);
             let newMaxFlow = GraphHelper.getMaxFlow(newG, source, sink);
- //           console.log("maxFlow with "+nextTutorCapacity+" tutors ==> "+newMaxFlow);
             if(newMaxFlow >= maxFlow) {
-//                console.log("newMaxFlow == maxFlow so we can lower the tutor capacity");
+                // newMaxFlow == maxFlow so we can lower the tutor capacity
                 lowestTutorCapacity = nextTutorCapacity;
                 nextTutorCapacity = Math.floor(nextTutorCapacity / 2);
             } else {
-    //            console.log("newMaxFlow != maxFlow so we have to increase the tutor capacity");
+                // newMaxFlow != maxFlow so we have to increase the tutor capacity
                 nextTutorCapacity = Math.floor((lowestTutorCapacity + nextTutorCapacity) / 2);
                 if(lastNextTutorCapacity == nextTutorCapacity) {
-   //                 console.log("lastNextTutorCapacity == nextTutorCapacity so we can't lower the tutor capacity anymore");
+                // lastNextTutorCapacity == nextTutorCapacity so we can't lower the tutor capacity anymore
                     nextTutorCapacity = lowestTutorCapacity;
                     break;
                 }
@@ -81,6 +76,135 @@ export default class GraphHelper {
         }
 
         return nextTutorCapacity;
+    }
+
+    static getTutorOptimizationWhereAllHaveSameMinimum(unoptimizedJSON: any, maxTutorCapacity: any): number {
+        console.log("Okay we have a optimized plan where we know that the maximum");
+        console.log("tutor capacity is "+maxTutorCapacity);
+        let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, maxTutorCapacity);
+        let g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
+        let source = graphAndVerticeMaps.source;
+        let sink = graphAndVerticeMaps.sink;
+        let maxFlow = GraphHelper.getMaxFlow(g, source, sink);
+        console.log("maxFlow: "+maxFlow);
+        let currentMaxFlow = maxFlow;
+        // so every tutor has the same upper bound, now we have to find the minimum tutor capacity, because it might be
+        // that some tutors have a lower capacity and we want to shuffle them to the tutors with the higher capacity
+
+        // Step 1: Get the tutors current individual capacities
+        let currentDictTutorToIndividualDiff = {};
+        let currentOptimizedJSON = JSON.parse(JSON.stringify(unoptimizedJSON));
+
+        let keepOptimizing = true;
+        let iteration = 0;
+        let maxIterations = 10;
+
+        while(keepOptimizing && iteration < maxIterations) {
+            iteration++;
+            console.log("---- new iteration ----");
+
+            let nextDictTutorToIndividualDiff = GraphHelper.getDictTutorToIndividualDiff(currentOptimizedJSON, maxTutorCapacity, currentDictTutorToIndividualDiff);
+            console.log("nextDictTutorToIndividualDiff: ");
+            console.log(JSON.stringify(nextDictTutorToIndividualDiff));
+
+            graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(currentOptimizedJSON, maxTutorCapacity, nextDictTutorToIndividualDiff);
+            g = GraphHelper.getJSGraphsFlowNetwork(graphAndVerticeMaps);
+            source = graphAndVerticeMaps.source;
+            sink = graphAndVerticeMaps.sink;
+            currentMaxFlow = GraphHelper.getMaxFlow(g, source, sink);
+
+            let nextOptimizedJSON = GraphHelper.getTutorDistributionFromGraphAndVerticeMaps(currentOptimizedJSON, graphAndVerticeMaps);
+
+            // we dont need to add the diff to the tutor capacities, because we already did that in the previous step
+            //let optimizedTutorDistribution = GraphHelper.getDictTutorToAmountGroups(optimizedJSONWhereAllTutorsHaveTheSameMaximum);
+            //console.log("optimizedTutorDistribution: ");
+            //console.log(optimizedTutorDistribution);
+
+            let sameFlow = currentMaxFlow == maxFlow;
+
+            let differentDistribution = JSON.stringify(currentDictTutorToIndividualDiff) != JSON.stringify(nextDictTutorToIndividualDiff);
+
+            // when we have the same max flow and the distribution is different, we keep the new distribution
+            if(sameFlow && differentDistribution) {
+                currentDictTutorToIndividualDiff = nextDictTutorToIndividualDiff;
+                currentOptimizedJSON = JSON.parse(JSON.stringify(nextOptimizedJSON));
+                keepOptimizing = true;
+            } else {
+                console.log("Optimization finished!")
+                console.log("sameFlow: "+sameFlow);
+                console.log("differentDistribution: "+differentDistribution);
+                keepOptimizing = false;
+            }
+        }
+
+        console.log("=============================================");
+        console.log("dictTutorToIndividualDiff: ");
+        console.log(currentDictTutorToIndividualDiff);
+
+        return currentOptimizedJSON;
+    }
+
+    static getDictTutorToIndividualDiff(unoptimizedJSON: any, maxTutorCapacity: any, dictTutorToIndividualDiff: any){
+        let copyDictTutorToIndividualDiff = JSON.parse(JSON.stringify(dictTutorToIndividualDiff));
+
+        let tutorDistributionInformation = GraphHelper.getDictTutorDistributionInformation(unoptimizedJSON, maxTutorCapacity);
+        let tutorHighestPercentageValue = undefined;
+        let tutorHighestPercentageName = undefined;
+        let tutorLowestPercentageValue = undefined;
+        let tutorLowestPercentageName = undefined;
+        let tutorKeys = Object.keys(tutorDistributionInformation);
+        for(let tutorKey of tutorKeys){
+            // @ts-ignore
+            let tutorPercentage = tutorDistributionInformation[tutorKey].percentage;
+            if(tutorHighestPercentageValue == undefined || tutorPercentage > tutorHighestPercentageValue){
+                tutorHighestPercentageValue = tutorPercentage;
+                tutorHighestPercentageName = tutorKey;
+            }
+            if(tutorLowestPercentageValue == undefined || tutorPercentage < tutorLowestPercentageValue){
+                tutorLowestPercentageValue = tutorPercentage;
+                tutorLowestPercentageName = tutorKey;
+            }
+        }
+
+        console.log("- tutorHighestPercentageName: "+tutorHighestPercentageName)
+        console.log("- tutorHighestPercentageValue: "+tutorHighestPercentageValue)
+        console.log("- tutorLowestPercentageName: "+tutorLowestPercentageName)
+        console.log("- tutorLowestPercentageValue: "+tutorLowestPercentageValue)
+
+        if(tutorHighestPercentageName && tutorLowestPercentageName && tutorHighestPercentageName != tutorLowestPercentageName){
+            let tutorHighestPercentageCurrentDiff = copyDictTutorToIndividualDiff[tutorHighestPercentageName] || 0;
+            let tutorLowestPercentageCurrentDiff = copyDictTutorToIndividualDiff[tutorLowestPercentageName] || 0;
+
+            if(tutorLowestPercentageCurrentDiff < 0 || tutorHighestPercentageCurrentDiff > 0){
+                // if the person with the lowest percentage has a negative diff already, we dont want to increase it
+                // this would cause a loop
+                // if the person with the highest percentage has a positive diff already, we dont want to decrease it
+                // this would cause a loop
+                return copyDictTutorToIndividualDiff // we return the old dict
+            } else {
+                copyDictTutorToIndividualDiff[tutorHighestPercentageName] = tutorHighestPercentageCurrentDiff - 1;
+                copyDictTutorToIndividualDiff[tutorLowestPercentageName] = tutorLowestPercentageCurrentDiff + 1;
+            }
+        }
+
+        return copyDictTutorToIndividualDiff;
+    }
+
+    static getDictTutorDistributionInformation(unoptimizedJSON: any, maxTutorCapacity: any){
+        let tutorDistribution = GraphHelper.getDictTutorToAmountGroups(unoptimizedJSON);
+        let dictTutorDistributionInformation = {};
+        for(let tutor in tutorDistribution){
+            let amountGroups = tutorDistribution[tutor];
+            let multiplier = unoptimizedJSON?.tutorMultipliers?.[tutor] || 1
+            let aimedMaxCapacity = maxTutorCapacity * multiplier;
+            // @ts-ignore
+            dictTutorDistributionInformation[tutor] = {
+                amountGroups: amountGroups,
+                aimedMaxCapacity: aimedMaxCapacity,
+                percentage: amountGroups / aimedMaxCapacity
+            }
+        }
+        return dictTutorDistributionInformation;
     }
 
     static getGraphFromGraphRaw(graphRaw: any, nameToVertice: any, verticeToName: any, tutorCapacity: number): any {
@@ -97,8 +221,12 @@ export default class GraphHelper {
         return ff.minCut(g);
     }
 
-    static getTutorDistribution(unoptimizedJSON: any, tutorCapacity: number): any {
-        let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, tutorCapacity);
+    static getMaxFlow(g: any, source: number, sink: number){
+        let ff = new jsgraphs.FordFulkerson(g, source, sink);
+        return ff.value;
+    }
+
+    static getTutorDistributionFromGraphAndVerticeMaps(unoptimizedJSON: any, graphAndVerticeMaps: any): any {
         let minCut = GraphHelper.getMinCut(graphAndVerticeMaps);
 
         for(let i = 0; i < minCut.length; i++) {
@@ -128,17 +256,54 @@ export default class GraphHelper {
         return optimizedJSON;
     }
 
-    static getMaxFlow(g: any, source: number, sink: number){
-        let ff = new jsgraphs.FordFulkerson(g, source, sink);
-        return ff.value;
+    static getTutorDistribution(unoptimizedJSON: any, tutorCapacity: number): any {
+        let graphAndVerticeMaps = JSONToGraph.getGraphAndVerticeMaps(unoptimizedJSON, tutorCapacity);
+        let optimizedJSON = GraphHelper.getTutorDistributionFromGraphAndVerticeMaps(unoptimizedJSON, graphAndVerticeMaps);
+        return optimizedJSON;
+    }
+
+    static getDictTutorToAmountGroups(unoptimizedJSON: any, dictTutorToIndividualDiff?: any): any {
+        let tutors = unoptimizedJSON.tutors;
+        let tutorNames = Object.keys(tutors);
+        let dictTutorToCapacity = {};
+        for(const tutor of tutorNames) {
+            // @ts-ignore
+            dictTutorToCapacity[tutor] = 0;
+        }
+        let groups = unoptimizedJSON.groups;
+        let groupKeys = Object.keys(groups);
+        for(const groupKey of groupKeys) {
+            let group = groups[groupKey];
+            let selectedSlot = group.selectedSlot;
+            let tutor = selectedSlot.tutor;
+            // @ts-ignore
+            if(dictTutorToCapacity[tutor] == undefined) {
+                // @ts-ignore
+                dictTutorToCapacity[tutor] = 1;
+            } else {
+                // @ts-ignore
+                dictTutorToCapacity[tutor] += 1;
+            }
+        }
+
+        if(!!dictTutorToIndividualDiff){
+            let tutorKeysFromDictTutorToIndividualDiff = Object.keys(dictTutorToIndividualDiff);
+            for(const tutorKey of tutorKeysFromDictTutorToIndividualDiff) {
+                // @ts-ignore
+                dictTutorToCapacity[tutorKey] += dictTutorToIndividualDiff[tutorKey];
+            }
+        }
+
+        return dictTutorToCapacity;
     }
 
     static getOptimizedDistribution(unoptimizedJSON: any){
         console.log("getOptimizedDistribution");
-        let minTutorCapacity = GraphHelper.getMinimalRequiredTutorCapacity(unoptimizedJSON);
-        console.log("minTutorCapacity: "+minTutorCapacity);
-        let tutorDistribution = GraphHelper.getTutorDistribution(unoptimizedJSON, minTutorCapacity);
-        return tutorDistribution;
+        let maxTutorCapacity = GraphHelper.getTutorCapacityWhereAllHaveSameMaximum(unoptimizedJSON);
+        console.log("maxTutorCapacity: "+maxTutorCapacity);
+        let optimizedJSONWhereAllTutorsHaveTheSameMaximum = GraphHelper.getTutorDistribution(unoptimizedJSON, maxTutorCapacity);
+        let optimizedJSONWhereAllTutorsHaveTheSameMinimum = GraphHelper.getTutorOptimizationWhereAllHaveSameMinimum(optimizedJSONWhereAllTutorsHaveTheSameMaximum, maxTutorCapacity);
+        return optimizedJSONWhereAllTutorsHaveTheSameMinimum;
     }
 
 }

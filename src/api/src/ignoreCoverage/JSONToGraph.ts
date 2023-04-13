@@ -40,10 +40,11 @@ export default class JSONToGraph {
         let startHour = 8;
         let endHour = 20;
         let minuteStep = 15;
+        let minutesPerHour = 60;
 
         let timeslots = [];
         for(let i = startHour; i < endHour; i++){
-            for(let j = 0; j < 60; j+=minuteStep){
+            for(let j = 0; j < minutesPerHour; j+=minuteStep){
                 let hour = i < 10 ? "0" + i : i;
                 let minute = j < 10 ? "0" + j : j;
                 timeslots.push(hour + ":" + minute);
@@ -87,7 +88,7 @@ export default class JSONToGraph {
         return slots
     }
 
-    static getGraphAndVerticeMaps(parsedJSON: any, tutorCapacity: number): any {
+    static getGraphAndVerticeMaps(parsedJSON: any, tutorCapacity: number, dictTutorToIndividualDiff?: any): any {
         //console.log("getGraphAndVerticeMaps: with tutorCapacity: "+tutorCapacity)
 
         let result = {
@@ -241,6 +242,13 @@ export default class JSONToGraph {
                 multiplier = individualMultiplier;
             }
             let individualTutorCapacity = Math.floor(tutorCapacity * multiplier);
+
+            if(!!dictTutorToIndividualDiff){
+                if(dictTutorToIndividualDiff[tutor] !== undefined){
+                    let individualDiff = dictTutorToIndividualDiff[tutor];
+                    individualTutorCapacity += individualDiff;
+                }
+            }
 
             //console.log("Adding edge from tutorVertice: "+tutorVertice+" to sink: "+sink)
             //@ts-ignore

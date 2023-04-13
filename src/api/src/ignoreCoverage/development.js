@@ -9,8 +9,8 @@ async function main(){
     let tutors = [];
 
     console.log("Try parsing");
-    let unoptimizedJSON = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(ExampleCSVContent.getExampleCSVContent());
-    //unoptimizedJSON = ExampleCSVContent.getExampleParsedJSON();
+    //let unoptimizedJSON = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(ExampleCSVContent.getExampleCSVContent());
+    let unoptimizedJSON = ExampleCSVContent.getExampleParsedJSON();
 
     console.log("++++  Output +++++");
     console.log(JSON.stringify(unoptimizedJSON, null, 2));
