@@ -40,6 +40,8 @@ export default class GraphHelper {
      * @param unoptimizedJSON
      */
     static getTutorCapacityWhereAllHaveSameMaximum(unoptimizedJSON: any): number {
+        console.log("============================================")
+        console.log("getTutorCapacityWhereAllHaveSameMaximum");
         let amountGroups = Object.keys(unoptimizedJSON.groups).length;
 
         let initialTutorCapacity = amountGroups;
@@ -454,6 +456,69 @@ export default class GraphHelper {
         return amountOfSwitches;
     }
 
+    static mergeSingleGroups(unoptimizedJSON: any): any {
+        console.log("=====================================");
+        console.log("mergeSingleGroups")
+        let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
+
+        let timeslots = JSONToGraph.getTimeslots();
+        for(let i=0; i<timeslots.length; i++) {
+            let time = timeslots[i];
+            let workingWeekdays = JSONToGraph.getWorkingWeekdays();
+            for(let day of workingWeekdays){
+                let oldGroups = unoptimizedJSON.groups;
+                let oldGroupNames = Object.keys(oldGroups);
+
+                let singleGroups = [];
+
+                for(let i=0; i<oldGroupNames.length; i++) {
+                    let currentGroupName = oldGroupNames[i];
+                    let useSelectedSlot = oldGroups?.[currentGroupName]?.selectedSlot;
+
+                    if (useSelectedSlot.day === day && useSelectedSlot.time === time) {
+                        let currentGroup = oldGroups?.[currentGroupName];
+                        let members = currentGroup.members;
+                        if(members.length === 1){
+                            console.log("Found single group: " + currentGroupName + " at " + day + " " + time)
+                            singleGroups.push(currentGroupName);
+                            if(singleGroups.length >= 2){
+                                console.log("Found 2 single groups at the same time and day: " + singleGroups[0] + " and " + singleGroups[1])
+                                // we have at least 2 single groups at the same time and day, so we can merge them
+                                // lets get the two members
+                                let otherGroupName = singleGroups[0];
+                                let otherGroup = oldGroups?.[otherGroupName];
+                                let otherGroupMember = otherGroup.members[0];
+                                let currentGroupMember = currentGroup.members[0];
+
+                                // lets add the member of the other group to the current group
+                                let groupMembers = [otherGroupMember, currentGroupMember];
+                                let groupId = groupMembers.join(" & ")
+
+                                // lets create a new group
+                                console.log("Creating new group: " + groupId + " with members: " + groupMembers)
+                                newPlan.groups[groupId] = {};
+                                newPlan.groups[groupId]["members"] = groupMembers;
+                                newPlan.groups[groupId]["selectedSlot"] = JSON.parse(JSON.stringify(currentGroup.selectedSlot))
+                                newPlan.groups[groupId]["possibleSlots"] = {}; // reset the possibleSlots
+                                newPlan.groups[groupId]["possibleSlots"][day] = {};
+                                newPlan.groups[groupId]["possibleSlots"][day][time] = true; // set the possibleSlot
+
+                                // lets delete the other group
+                                console.log("Deleting group: " + otherGroupName + " and " + currentGroupName);
+                                delete newPlan.groups[otherGroupName];
+                                delete newPlan.groups[currentGroupName];
+
+                                singleGroups = [] // reset the array
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return newPlan;
+    }
+
     static getOptimizedDistribution(unoptimizedJSON: any){
         console.log("getOptimizedDistribution");
         let oldPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
@@ -462,7 +527,7 @@ export default class GraphHelper {
         let optionRemoveUnnecessarySwitches = true;
         let optionOptimizeMinimum = true;
 
-        let maxTutorCapacity = GraphHelper.getTutorCapacityWhereAllHaveSameMaximum(unoptimizedJSON);
+        let maxTutorCapacity = GraphHelper.getTutorCapacityWhereAllHaveSameMaximum(newPlan);
         console.log("maxTutorCapacity: "+maxTutorCapacity);
         newPlan = GraphHelper.getTutorDistribution(unoptimizedJSON, maxTutorCapacity);
         if(optionOptimizeMinimum) {

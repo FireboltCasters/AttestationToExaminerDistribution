@@ -88,6 +88,11 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
+    async function mergeSingleGroups(){
+        let oldPlanWithMergedGroups = GraphHelper.mergeSingleGroups(oldPlan);
+        setOldPlan(oldPlanWithMergedGroups);
+    }
+
     async function handleOptimize(){
         let optimizedPlan = GraphHelper.getOptimizedDistribution(oldPlan);
         setNewPlan(optimizedPlan);
@@ -105,6 +110,15 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
         return(
             <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleOptimize()}} />
+        )
+    }
+
+    function renderMergeSingleGroupsButton(){
+        let disabled = !oldPlan;
+        let label = !!oldPlan ? "Merge Single Groups" : "No plan to optimize";
+
+        return(
+            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {mergeSingleGroups()}} />
         )
     }
 
@@ -437,6 +451,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             {renderSpitLine()}
 
             <div>
+                {renderMergeSingleGroupsButton()}
                 {renderOptimizeButton()}
                 {renderSwitchButton()}
             </div>
