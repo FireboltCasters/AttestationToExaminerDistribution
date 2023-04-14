@@ -304,13 +304,176 @@ export default class GraphHelper {
         return dictTutorToCapacity;
     }
 
+    static removeUnnecessarySwitchesInSameSlots(oldPlan: any, unoptimizedJSON: any): any {
+        console.log("=====================================");
+        console.log("removeUnnecessarySwitchesInSameSlots")
+        let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
+
+        let timeslots = JSONToGraph.getTimeslots();
+        for(let i=0; i<timeslots.length; i++) {
+            let time = timeslots[i];
+            let workingWeekdays = JSONToGraph.getWorkingWeekdays();
+            for(let day of workingWeekdays){
+                let groupsAtTimeAndDayWithDifferentTutor = []
+                let oldGroups = oldPlan.groups;
+                //@ts-ignore
+                let newGroups = newPlan?.groups;
+                let oldGroupNames = Object.keys(oldGroups);
+
+                for(let i=0; i<oldGroupNames.length; i++) {
+                    let groupName = oldGroupNames[i];
+                    let oldSelectedSlot = oldGroups?.[groupName]?.selectedSlot;
+                    let newSelectedSlot = newGroups?.[groupName]?.selectedSlot;
+                    let oldSelectedTutor = oldSelectedSlot?.tutor;
+                    let newSelectedTutor = newSelectedSlot?.tutor;
+                    let useSelectedSlot = !!newSelectedSlot ? newSelectedSlot : oldSelectedSlot;
+
+                    if (useSelectedSlot.day === day && useSelectedSlot.time === time && oldSelectedTutor !== newSelectedTutor) {
+                        groupsAtTimeAndDayWithDifferentTutor.push(groupName);
+                    }
+                }
+                if(groupsAtTimeAndDayWithDifferentTutor.length >= 2){
+                    newPlan = this.removeUnnecessarySwitchesInSameSlot(oldPlan, newPlan, groupsAtTimeAndDayWithDifferentTutor, day, time);
+                }
+            }
+        }
+
+        return newPlan;
+    }
+
+    static removeUnnecessarySwitchesInSameSlot(oldPlan: any, newPlan: any, groupsAtTimeAndDay: any, day: any, time: any): any {
+  //      console.log("====================================");
+        console.log("removeUnnecessarySwitchesInSameSlot for day: " + day + " and time: " + time);
+
+        let initialAmountOfSwitches = this.countAmountOfSwitchesInPlan(oldPlan, newPlan, groupsAtTimeAndDay);
+//        console.log("initialAmountOfSwitches: " + initialAmountOfSwitches);
+//        console.log("groupsAtTimeAndDay: ");
+//        console.log(groupsAtTimeAndDay);
+        let tutorsArray = this.getTutorsArrayForGroupsAtTimeAndDays(newPlan, groupsAtTimeAndDay);
+        let tutorPermutations = this.getTutorPermutations(tutorsArray);
+
+        let newPlanCopy = JSON.parse(JSON.stringify(newPlan));
+        let bestPlan = newPlanCopy;
+        let bestAmountOfSwitches = initialAmountOfSwitches;
+        for(let i=0; i<tutorPermutations.length; i++) {
+            let tutorPermutation = tutorPermutations[i];
+            let newPlanWithSwitchedTutors = this.getPlanWithSwitchedTutors(newPlanCopy, tutorPermutation, groupsAtTimeAndDay);
+            let amountOfSwitches = this.countAmountOfSwitchesInPlan(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay);
+//            console.log("Permutation "+i+" amountOfSwitches: " + amountOfSwitches);
+            if(amountOfSwitches < bestAmountOfSwitches) {
+                bestAmountOfSwitches = amountOfSwitches;
+                bestPlan = newPlanWithSwitchedTutors;
+            }
+        }
+        console.log("Saved " + (initialAmountOfSwitches - bestAmountOfSwitches) + " switches");
+
+        // we need to check if there is any permutation of the which has less switches
+        return bestPlan;
+    }
+
+    static getPlanWithSwitchedTutors(newPlan: any, tutorPermutationArray: any, groupsAtTimeAndDayArray: any): any {
+        let newPlanCopy = JSON.parse(JSON.stringify(newPlan));
+        for(let i=0; i<groupsAtTimeAndDayArray.length; i++) {
+            let groupName = groupsAtTimeAndDayArray[i];
+            let tutorName = tutorPermutationArray[i];
+            let group = newPlanCopy.groups[groupName]
+            group.selectedSlot.tutor = tutorName;
+            newPlanCopy.groups[groupName] = group;
+        }
+        return newPlanCopy;
+    }
+
+    /**
+     * Return all permutations of the tutorsArray
+     *  input:  ["apple", "banana", "kiwi"]
+     *
+     * [["apple", "banana", "kiwi"]
+     * ["apple", "kiwi", "banana"]
+     * ["kiwi", "banana", "apple"]
+     * ["kiwi", "apple", "banana"]
+     * ["banana", "kiwi", "apple"]
+     * ["banana",  "apple", "kiwi"]]
+     *
+     * @param tutorsArray
+     * @returns all permutations of the tutorsArray
+     */
+    static getTutorPermutations(tutorsArray: any): any {
+        let arr = tutorsArray;
+        const output: any[][] = [];
+        const n = arr.length;
+
+        function swap(i: any, j: any) {
+            const temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+
+        function generate(n: any, arr: any) {
+            if (n === 1) {
+                output.push([...arr]);
+                return;
+            }
+
+            for (let i = 0; i < n; i++) {
+                generate(n - 1, arr);
+                if (n % 2 === 0) {
+                    swap(i, n - 1);
+                } else {
+                    swap(0, n - 1);
+                }
+            }
+        }
+
+        generate(n, arr);
+        return output;
+    }
+
+    static getTutorsArrayForGroupsAtTimeAndDays(newPlan: any, groupsAtTimeAndDay: any): any {
+        let tutorsArray = [];
+        for(let i=0; i<groupsAtTimeAndDay.length; i++) {
+            let groupName = groupsAtTimeAndDay[i];
+            let selectedSlot = newPlan.groups?.[groupName]?.selectedSlot;
+            let tutor = selectedSlot?.tutor;
+            tutorsArray.push(tutor);
+        }
+        return tutorsArray;
+    }
+
+    static countAmountOfSwitchesInPlan(oldPlan: any, newPlan: any, groupsAtTimeAndDay: any): number {
+        let amountOfSwitches = 0;
+        for(let i=0; i<groupsAtTimeAndDay.length; i++) {
+            let groupName = groupsAtTimeAndDay[i];
+            let oldSelectedSlot = oldPlan.groups?.[groupName]?.selectedSlot;
+            let newSelectedSlot = newPlan.groups?.[groupName]?.selectedSlot;
+            let oldSelectedTutor = oldSelectedSlot?.tutor;
+            let newSelectedTutor = newSelectedSlot?.tutor;
+            if(oldSelectedTutor !== newSelectedTutor){
+                amountOfSwitches++;
+            }
+        }
+        return amountOfSwitches;
+    }
+
     static getOptimizedDistribution(unoptimizedJSON: any){
         console.log("getOptimizedDistribution");
+        let oldPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
+        let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
+
+        let optionRemoveUnnecessarySwitches = true;
+        let optionOptimizeMinimum = true;
+
         let maxTutorCapacity = GraphHelper.getTutorCapacityWhereAllHaveSameMaximum(unoptimizedJSON);
         console.log("maxTutorCapacity: "+maxTutorCapacity);
-        let optimizedJSONWhereAllTutorsHaveTheSameMaximum = GraphHelper.getTutorDistribution(unoptimizedJSON, maxTutorCapacity);
-        let optimizedJSONWhereAllTutorsHaveTheSameMinimum = GraphHelper.getTutorOptimizationWhereAllHaveSameMinimum(optimizedJSONWhereAllTutorsHaveTheSameMaximum, maxTutorCapacity);
-        return optimizedJSONWhereAllTutorsHaveTheSameMinimum;
+        newPlan = GraphHelper.getTutorDistribution(unoptimizedJSON, maxTutorCapacity);
+        if(optionOptimizeMinimum) {
+            newPlan = GraphHelper.getTutorOptimizationWhereAllHaveSameMinimum(newPlan, maxTutorCapacity);
+        }
+
+        if(optionRemoveUnnecessarySwitches) {
+            newPlan = GraphHelper.removeUnnecessarySwitchesInSameSlots(oldPlan, newPlan);
+        }
+
+        return newPlan;
     }
 
 }
