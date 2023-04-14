@@ -101,7 +101,7 @@ export default class GraphHelper {
 
         let keepOptimizing = true;
         let iteration = 0;
-        let maxIterations = 10;
+        let maxIterations = 1000;
 
         while(keepOptimizing && iteration < maxIterations) {
             iteration++;
