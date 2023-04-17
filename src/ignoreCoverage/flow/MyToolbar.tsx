@@ -415,6 +415,54 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
+    function renderSingleGroup(groupName: any, backgroundColor: any): ReactNode{
+        let group = oldPlan?.groups?.[groupName];
+        let oldSlot = group?.selectedSlot;
+        let day = oldSlot?.day;
+        let time = oldSlot?.time;
+        let dayAndTime = day + " " + time;
+        let tutorInOldPlan = oldSlot?.tutor;
+        let key = groupName + dayAndTime + tutorInOldPlan;
+        return(
+            <div key={key} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
+                <div key={"dayAndTime"} style={{flexGrow: 1, flex: 1}}>{dayAndTime}</div>
+                <div key={"groupName"} style={{flexGrow: 1, flex: 2}}>{groupName}</div>
+                <div key={"split1"} style={{flexGrow: 1, flex: 2}}>{"("+tutorInOldPlan+")"}</div>
+            </div>
+        )
+    }
+
+    function renderSingleGroups(){
+        let groups = oldPlan?.groups || {};
+        let groupNames = Object.keys(groups);
+        let renderedSingleGroups: ReactNode[] = [];
+        let index = 0;
+        for(let groupName of groupNames){
+            let group = groups[groupName];
+            let members = group?.members || [];
+            let amountOfMembers = members.length;
+            if(amountOfMembers === 1){
+                index++;
+                let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
+                renderedSingleGroups.push(renderSingleGroup(groupName, backgroundColor));
+            }
+        }
+
+        return (
+            <>
+                <div>{"Single Groups"}</div>
+                <div key={"changesHeader"} style={{flexDirection: "row", display: "flex", width: "100%", paddingBottom: 20}}>
+                    <div key={"day & time"} style={{flexGrow: 1, flex: 1}}>{"Day & Time"}</div>
+                    <div key={"group"} style={{flexGrow: 1, flex: 2}}>{"Group"}</div>
+                    <div key={"tutor"} style={{flexGrow: 1, flex: 2}}>{"(Tutor)"}</div>
+                </div>
+                <div style={{width: "100%"}}>
+                    {renderedSingleGroups}
+                </div>
+            </>
+        )
+    }
+
     function renderTutorInformations(){
         let amountOfGroups = Object.keys(oldPlan?.groups || {}).length;
 
@@ -434,6 +482,8 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                 </div>
                 {renderSpitLine()}
                 {renderChanges()}
+                {renderSpitLine()}
+                {renderSingleGroups()}
             </>
         )
     }
