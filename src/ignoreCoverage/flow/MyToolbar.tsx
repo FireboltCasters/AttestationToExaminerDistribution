@@ -118,7 +118,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         let label = !!oldPlan ? "Merge Single Groups" : "No plan to optimize";
 
         return(
-            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {mergeSingleGroups()}} />
+            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-information" style={{margin: 5}} onClick={() => {mergeSingleGroups()}} />
         )
     }
 

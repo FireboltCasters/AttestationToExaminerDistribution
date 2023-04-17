@@ -65,7 +65,18 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
             tutorChanged = true;
         }
 
+        let groupSingle = false;
+        let group = oldPlan?.groups[groupName];
+        if(!!group?.members && group.members.length === 1){
+            groupSingle = true;
+        }
+
         let borderColor = tutorChanged ? "red" : "black";
+
+        let backgroundColor = groupSingle ? "#6366F1" : "transparent";
+
+
+
         //@ts-ignore
         let isSelectedAtFirst = selectedSlotFirst?.group === groupName;
         //@ts-ignore
@@ -85,14 +96,17 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
 
         let cursor = isSelectable(slotToSave, isSelectedAtFirst, isSelectedAtSecond) ? "pointer" : "not-allowed";
 
+        let singleDiv = groupSingle ? <div>{"SingleGroup"}</div> : null;
+
         return (
-            <div key={groupName} style={{border: '2px solid '+borderColor, marginBottom: 5, cursor: cursor}} onClick={() => {
+            <div key={groupName} style={{border: '2px solid '+borderColor, backgroundColor: backgroundColor, marginBottom: 5, cursor: cursor}} onClick={() => {
                 handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
             }}>
                 <div>{"Group: "+groupName}</div>
                 <div style={{height: 10}}></div>
                 <div>{"Tutor old: "+oldSelectedSlot?.tutor}</div>
                 <div>{"Tutor new: "+newSelectedSlot?.tutor}</div>
+                {singleDiv}
             </div>
         )
     }
