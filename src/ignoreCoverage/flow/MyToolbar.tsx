@@ -275,12 +275,12 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             rows += row;
         }
 
-        return '<table class="content">\n' +
+        return '<!--HTML-->\n<figure class="table">\n<table>\n' +
             '\t<tbody>\n' +
             header +'\n'+
             rows+'\n'+
             '\t</tbody>\n' +
-            '</table>\n';
+            '</table>\n</figure>';
 
     }
 
