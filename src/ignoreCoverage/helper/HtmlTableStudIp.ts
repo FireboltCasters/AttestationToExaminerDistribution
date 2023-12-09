@@ -47,33 +47,46 @@ export default class HtmlTableStudIp {
         return tds;
     }
 
-    static getContentForCell(time: string, day: string, plan: any): string{
+    static getContentForCell(time: string, day: string, plan: any, tutors: TutorTimes): string {
         let groups = plan?.groups || {};
         let groupNames = Object.keys(groups);
         let content = "";
         let listContent = "";
-        for(let groupName of groupNames){
+        for (let groupName of groupNames) {
             let group = groups[groupName];
             let selectedSlot = group?.selectedSlot;
-            if(selectedSlot?.time === time && selectedSlot?.day === day){
+            if (selectedSlot?.time === time && selectedSlot?.day === day) {
                 let tutor = selectedSlot?.tutor;
-                listContent += '\t\t\t\t<li>'+groupName+' (bei '+tutor+')'+'</li>\n';
+                listContent += `\t\t\t\t<li>${groupName} (bei ${tutor})</li>\n`;
             }
         }
-        if(listContent){
-            content = '\t\t\t<ul>\n'+listContent+'\t\t\t</ul>\n';
+
+        // Check if any tutor is available at this timeslot
+        for (const tutor in tutors) {
+            if (tutors[tutor][day] && tutors[tutor][day][time]) {
+                // Check if this slot is not already taken by a group
+                if (!listContent.includes(`(bei ${tutor})`)) {
+                    listContent += `\t\t\t\t<li>(bei ${tutor})</li>\n`;
+                }
+            }
+        }
+
+        if (listContent) {
+            content = `\t\t\t<ul>\n${listContent}\t\t\t</ul>\n`;
         }
         return content;
     }
 
-    static getPlanAsStudipTable(newPlan: any, oldPlan: any){
+
+    static getPlanAsStudipTable(newPlan: any, oldPlan: any) {
         let usePlan = newPlan || oldPlan;
+        let tutors = usePlan.tutors || {};
 
         let workingWeekdays = JSONToGraph.getWorkingWeekdays();
         let timeslots = JSONToGraph.getTimeslots();
 
         let headerTexts = ["Uhrzeit"];
-        for(let weekday of workingWeekdays){
+        for (let weekday of workingWeekdays) {
             let germanWeekday = JSONToGraph.getWeekdayTranslation(weekday);
             headerTexts.push(germanWeekday);
         }
@@ -82,10 +95,10 @@ export default class HtmlTableStudIp {
             '\t\t</tr>';
 
         let rows = "";
-        for(let timeslot of timeslots){
+        for (let timeslot of timeslots) {
             let rowTexts = [timeslot];
-            for(let weekday of workingWeekdays){
-                let textForCell = HtmlTableStudIp.getContentForCell(timeslot, weekday, usePlan);
+            for (let weekday of workingWeekdays) {
+                let textForCell = HtmlTableStudIp.getContentForCell(timeslot, weekday, usePlan, tutors);
                 rowTexts.push(textForCell);
             }
 
@@ -97,8 +110,8 @@ export default class HtmlTableStudIp {
 
         return '<!--HTML-->\n<figure class="table">\n<table>\n' +
             '\t<tbody>\n' +
-            header +'\n'+
-            rows+'\n'+
+            header + '\n' +
+            rows + '\n' +
             '\t</tbody>\n' +
             '</table>\n</figure>';
     }
@@ -144,29 +157,38 @@ export default class HtmlTableStudIp {
                 const englishDay = weekdayTranslation[day];
                 $(cells[index + 1]).find('li').each((_: any, li: any) => {
                     const text = $(li).text();
-                    const [groupName, tutorName] = HtmlTableStudIp.extractGroupAndTutor(text);
 
-                    if (!groupName || !tutorName) return;
-
-                    if (!groups[groupName]) {
-                        groups[groupName] = {
-                            selectedSlot: { tutor: tutorName, day: englishDay, time },
-                            possibleSlots: { [englishDay]: { [time]: true } },
-                        };
+                    if (text.startsWith('(bei ')) {
+                        const tutorName = text.match(/\(bei (.+?)\)/)[1].trim();
+                        tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
+                        tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
+                        tutorsTimes[tutorName][englishDay][time] = true;
                     } else {
-                        groups[groupName].possibleSlots[englishDay] = groups[groupName].possibleSlots[englishDay] || {};
-                        groups[groupName].possibleSlots[englishDay][time] = true;
-                    }
+                        const [groupName, tutorName] = HtmlTableStudIp.extractGroupAndTutor(text);
 
-                    tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
-                    tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
-                    tutorsTimes[tutorName][englishDay][time] = true;
+                        if (!groupName || !tutorName) return;
+
+                        if (!groups[groupName]) {
+                            groups[groupName] = {
+                                selectedSlot: { tutor: tutorName, day: englishDay, time },
+                                possibleSlots: { [englishDay]: { [time]: true } },
+                            };
+                        } else {
+                            groups[groupName].possibleSlots[englishDay] = groups[groupName].possibleSlots[englishDay] || {};
+                            groups[groupName].possibleSlots[englishDay][time] = true;
+                        }
+
+                        tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
+                        tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
+                        tutorsTimes[tutorName][englishDay][time] = true;
+                    }
                 });
             });
         });
 
         return [groups, tutorsTimes];
     }
+
 
     static htmlToJson(htmlData: string): any {
         const $ = cheerio.load(htmlData);
