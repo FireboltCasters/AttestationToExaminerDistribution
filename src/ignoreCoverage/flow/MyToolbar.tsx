@@ -11,6 +11,7 @@ import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
 
 import jsgraphs from "js-graph-algorithms";
 import {JSONToGraph} from "../../api/src";
+import HtmlTableStudIp from "../helper/HtmlTableStudIp";
 
 export interface AppState{
     handleSwitchSelection: any,
@@ -47,7 +48,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         reader.readAsText(file);
     }
 
-    function handleImport(event: any){
+    function handleImportJson(event: any){
         let files = event.files;
         let file = files[0];
         const reader = new FileReader();
@@ -55,6 +56,21 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
             let content: string = ""+event?.target?.result;
             console.log(content);
             let json = JSON.parse(content);
+            setOldPlan(json);
+            setNewPlan(null);
+            //setReloadNumber(reloadNumber + 1);
+        });
+        reader.readAsText(file);
+    }
+
+    function handleImportHtmlTable(event: any){
+        let files = event.files;
+        let file = files[0];
+        const reader = new FileReader();
+        reader.addEventListener('load', async (event) => {
+            let content: string = ""+event?.target?.result;
+            console.log(content);
+            let json = HtmlTableStudIp.htmlToJson(content);
             setOldPlan(json);
             setNewPlan(null);
             //setReloadNumber(reloadNumber + 1);
@@ -219,75 +235,10 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
-    function getTableTdsFromList(list: string[]): string{
-        let tds = "";
-        for(let item of list){
-            tds += '\t\t\t<td>'+item+'</td>\n';
-        }
-        return tds;
-    }
-
-    function getContentForCell(time: string, day: string, plan: any): string{
-        let groups = plan?.groups || {};
-        let groupNames = Object.keys(groups);
-        let content = "";
-        let listContent = "";
-        for(let groupName of groupNames){
-            let group = groups[groupName];
-            let selectedSlot = group?.selectedSlot;
-            if(selectedSlot?.time === time && selectedSlot?.day === day){
-                let tutor = selectedSlot?.tutor;
-                listContent += '\t\t\t\t<li>'+groupName+' (bei '+tutor+')'+'</li>\n';
-            }
-        }
-        if(listContent){
-            content = '\t\t\t<ul>\n'+listContent+'\t\t\t</ul>\n';
-        }
-        return content;
-    }
-
-    function getPlanAsStudipTable(){
-        let usePlan = newPlan || oldPlan;
-
-        let workingWeekdays = JSONToGraph.getWorkingWeekdays();
-        let timeslots = JSONToGraph.getTimeslots();
-
-        let headerTexts = ["Uhrzeit"];
-        for(let weekday of workingWeekdays){
-            let germanWeekday = JSONToGraph.getWeekdayTranslation(weekday);
-            headerTexts.push(germanWeekday);
-        }
-        let header = '\t\t<tr>\n' +
-            getTableTdsFromList(headerTexts) +
-            '\t\t</tr>';
-
-        let rows = "";
-        for(let timeslot of timeslots){
-            let rowTexts = [timeslot];
-            for(let weekday of workingWeekdays){
-                let textForCell = getContentForCell(timeslot, weekday, usePlan);
-                rowTexts.push(textForCell);
-            }
-
-            let row = '\t\t<tr>\n' +
-                getTableTdsFromList(rowTexts) +
-                '\t\t</tr>\n';
-            rows += row;
-        }
-
-        return '<!--HTML-->\n<figure class="table">\n<table>\n' +
-            '\t<tbody>\n' +
-            header +'\n'+
-            rows+'\n'+
-            '\t</tbody>\n' +
-            '</table>\n</figure>';
-
-    }
-
     function renderDownloadAsStudipHTMLTableButton(){
         return(
             <Button label={"Download As StudIP HTML Table"} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {
-                let htmlTable = getPlanAsStudipTable();
+                let htmlTable = HtmlTableStudIp.getPlanAsStudipTable(newPlan, oldPlan);
                 DownloadHelper.downloadTextAsFiletile(htmlTable, "studipHTMLTable.txt")
             }} />
         )
@@ -488,14 +439,16 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
-    const uploadOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
+    const uploadJSONOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
+    const uploadHtmlOptions = {label: 'Load HTML Table', icon: 'pi pi-upload', className: 'p-button-success'};
     const leftContents = (
         <div style={{width: "100%", flexGrow: 1, flexDirection: "column", display: "flex", flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 10,paddingTop: 20, paddingRight: 10}}>
             <div>
 
                 {renderParseStudipFileUpload()}
                 {renderImportTextButton()}
-                <FileUpload auto chooseOptions={uploadOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImport(event)}} style={{margin: 5, display: "inline-block"}} />
+                <FileUpload auto chooseOptions={uploadJSONOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportJson(event)}} style={{margin: 5, display: "inline-block"}} />
+                <FileUpload auto chooseOptions={uploadHtmlOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportHtmlTable(event)}} style={{margin: 5, display: "inline-block"}} />
             </div>
 
             {renderSpitLine()}

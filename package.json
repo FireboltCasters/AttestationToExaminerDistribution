@@ -14,6 +14,7 @@
     "@types/react-dom": "^18.0.5",
     "attestation-to-examiner-distribution": "^0.0.6",
     "chart.js": "^3.7.1",
+    "cheerio": "^1.0.0-rc.12",
     "dagre": "^0.8.5",
     "primeicons": "^5.0.0",
     "primereact": "^8.1.1",

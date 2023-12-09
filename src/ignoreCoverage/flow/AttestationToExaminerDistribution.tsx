@@ -23,16 +23,6 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
     const [selectedSlotFirst, setSelectedSlotFirst] = useState(null);
     const [selectedSlotSecond, setSelectedSlotSecond] = useState(null);
 
-    async function sleep(milliseconds: number) {
-        return new Promise(resolve => setTimeout(resolve, milliseconds));
-    }
-
-    async function reset() {
-        //@ts-ignore
-        setOldPlan(null);
-        setReloadNumber(reloadNumber + 1);
-    }
-
     useEffect(() => {
         document.title = "Attestation to Examiner Distribution";
     }, [])
