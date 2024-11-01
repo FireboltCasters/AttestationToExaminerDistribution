@@ -39,7 +39,7 @@ export default class JSONToGraph {
     static getTimeslots(){
         let startHour = 8;
         let endHour = 20;
-        let minuteStep = 15;
+        let minuteStep = 20;
         let minutesPerHour = 60;
 
         let timeslots = [];
