@@ -27,7 +27,9 @@ export interface AppState{
 export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selectedSlotSecond, handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
 
     const [displayBasic, setDisplayBasic] = useState(false);
+    const [displayStudipTableImport, setDisplayStudipTableImport] = useState(false);
     const [textImportValue, setTextImportValue] = useState("");
+    const [displayStudipTableImportText, setDisplayStudipTableImportText] = useState("");
 
     function parseStudipCSVToJSON(event: any){
         console.log("parseStudipCSVToJSON");
@@ -101,6 +103,12 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         const parseOptions = {label: 'Parse Stud.IP CSV', icon: 'pi pi-upload', className: 'p-button-warning'};
         return(
             <FileUpload key={reloadNumber+JSON.stringify(oldPlan)} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5, display: "inline-block"}} />
+        )
+    }
+
+    function renderImportStudipTableButton(){
+        return(
+            <Button label="Import StudIP Table" icon="pi pi-upload" style={{margin: 5, display: "inline-block"}} onClick={() => {console.log("setDisplayBasic"); setDisplayStudipTableImport(true)}} />
         )
     }
 
@@ -245,7 +253,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
     }
 
     function renderImportTextDialog(){
-        const footer = (
+        const footerBasic = (
             <div>
                 <Button label="Yes" icon="pi pi-check" onClick={() => {
                     if(!!textImportValue && textImportValue.length > 0){
@@ -258,17 +266,49 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                         }
                     }
                 }} />
-                <Button label="No" icon="pi pi-times" onClick={() => {setDisplayBasic(false)}} />
+                <Button label="No" icon="pi pi-times" onClick={() => {
+                    setDisplayBasic(false)
+                }} />
             </div>
         );
 
-        return(
-            <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footer} onHide={() => setDisplayBasic(false)}>
-                <p>Please paste the JSON content as text inside</p>
-                <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setTextImportValue(e.target.value)} >
+        const footerStudip = (
+            <div>
+                <Button label="Yes" icon="pi pi-check" onClick={() => {
+                    if(!!textImportValue && textImportValue.length > 0){
+                        try{
+                            let parsed = HtmlTableStudIp.htmlToJson(textImportValue);
+                            setOldPlan(parsed);
+                            setDisplayStudipTableImport(false);
+                            setDisplayStudipTableImportText("");
+                        } catch (err){
+                            console.error(err);
+                        }
+                    }
+                }} />
+                <Button label="No" icon="pi pi-times" onClick={() => {
+                    setDisplayStudipTableImport(false)
+                }} />
+            </div>
+        );
 
-                </InputTextarea>
-            </Dialog>
+
+
+        return(
+            <>
+                <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footerBasic} onHide={() => setDisplayBasic(false)}>
+                    <p>Please paste the JSON content as text inside</p>
+                    <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setTextImportValue(e.target.value)} >
+
+                    </InputTextarea>
+                </Dialog>
+                <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footerStudip} onHide={() => setDisplayBasic(false)}>
+                    <p>Please paste the StudIp Table content as text inside</p>
+                    <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setDisplayStudipTableImportText(e.target.value)} >
+
+                    </InputTextarea>
+                </Dialog>
+            </>
         )
     }
 
@@ -447,6 +487,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
                 {renderParseStudipFileUpload()}
                 {renderImportTextButton()}
+                {renderImportStudipTableButton()}
                 <FileUpload auto chooseOptions={uploadJSONOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportJson(event)}} style={{margin: 5, display: "inline-block"}} />
                 <FileUpload auto chooseOptions={uploadHtmlOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportHtmlTable(event)}} style={{margin: 5, display: "inline-block"}} />
             </div>
