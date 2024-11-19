@@ -302,7 +302,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
 
                     </InputTextarea>
                 </Dialog>
-                <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footerStudip} onHide={() => setDisplayBasic(false)}>
+                <Dialog header="Text import as JSON" visible={displayStudipTableImport} style={{ width: '50vw' }} footer={footerStudip} onHide={() => setDisplayBasic(false)}>
                     <p>Please paste the StudIp Table content as text inside</p>
                     <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setDisplayStudipTableImportText(e.target.value)} >
 
