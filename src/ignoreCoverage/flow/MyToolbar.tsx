@@ -176,26 +176,26 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         return totalSlots;
     }
 
-    function renderTutorAuslastung(){
+    function useRenderTutorAuslastung() {
         let tutorsDict = oldPlan?.tutors || {};
-        let tutorNamesDict = {}
+        let tutorNamesDict: Record<string, string> = {};
+        let tutorMultipliersState = { ...oldPlan?.tutorMultipliers }; // Copy of the current multipliers
+        const [tutorMultipliers, setTutorMultipliers] = useState(tutorMultipliersState);
+
         let tutorNames = Object.keys(tutorsDict);
-        for(let tutorName of tutorNames){
-            // @ts-ignore
+        for (let tutorName of tutorNames) {
             tutorNamesDict[tutorName] = tutorName;
         }
 
         let groupsDict = oldPlan?.groups || {};
         let groups = Object.keys(groupsDict);
-        for(let group_key of groups){
-            let group = groupsDict[group_key];
+        for (let groupKey of groups) {
+            let group = groupsDict[groupKey];
             let selectedSlot = group?.selectedSlot;
             let tutor = selectedSlot?.tutor;
-            if(tutor){
-                // @ts-ignore
-                if(!tutorNamesDict[tutor]){
-                    // @ts-ignore
-                    tutorNamesDict[tutor] = "Error: Tutor not known: "+tutor;
+            if (tutor) {
+                if (!tutorNamesDict[tutor]) {
+                    tutorNamesDict[tutor] = "Error: Tutor not known: " + tutor;
                 }
             }
         }
@@ -203,35 +203,69 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         let tutors = Object.keys(tutorNamesDict);
         let renderedTutors = [];
 
-        let groupsForTutorInOldPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan)
-        let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan)
+        // Define the structure for groups for tutors
+        let groupsForTutorInOldPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
+        let groupsForTutorInNewPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan) || {};
 
         let index = 0;
-        for(let tutor_key of tutors){
+        for (let tutorKey of tutors) {
             index++;
-            let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
-            // @ts-ignore
-            let tutor_name = tutorNamesDict[tutor_key];
-            let tutor = tutor_key;
-            //@ts-ignore
-            let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {})?.length;
-            //@ts-ignore
-            let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {})?.length;
-            let tutorMultiplier = oldPlan?.tutorMultipliers?.[tutor] || 1;
+            let backgroundColor = index % 2 === 0 ? "transparent" : "#ffffff";
+            let tutorName = tutorNamesDict[tutorKey];
+            let tutor = tutorKey;
+
+            // Safely access the groups with explicit typing
+            let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {}).length;
+            let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {}).length;
+            let tutorMultiplier = tutorMultipliers[tutor] || 1;
             let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutor, oldPlan);
+
+            const handleMultiplierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = parseInt(e.target.value, 10);
+                if (!isNaN(value)) {
+                    setTutorMultipliers({
+                        ...tutorMultipliers,
+                        [tutor]: value,
+                    });
+                    // Optionally update the `oldPlan` directly if needed
+                    oldPlan.tutorMultipliers[tutor] = value;
+                }
+            };
+
             renderedTutors.push(
-                <div key={tutor} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
-                    <div key={"tutorName"} style={{flexGrow: 1, flex: 4}}>{tutor_name+" ("+tutorMultiplier+")"+": "}</div>
-                    <div key={"tutorAuslastung"} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungOld}</div>
-                    <div key={"split1"} style={{flexGrow: 1, flex: 1}}>{" ==> "}</div>
-                    <div key={"tutorAuslastungNew"} style={{flexGrow: 1, flex: 1}}>{tutorAuslastungNew}</div>
-                    <div key={"split2"} style={{flexGrow: 1, flex: 1}}>{" | "}</div>
-                    <div key={"amountSlots"} style={{flexGrow: 1, flex: 1}}>{amountOfferedSlotsForTutor}</div>
+                <div key={tutor} style={{ flexDirection: "row", display: "flex", backgroundColor: backgroundColor }}>
+                    <div style={{ flexGrow: 1, flex: 4 }}>
+                        {tutorName + ": "}
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        <input
+                            type="number"
+                            value={tutorMultiplier}
+                            onChange={handleMultiplierChange}
+                            style={{ width: "50px" }}
+                        />
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        {tutorAuslastungOld}
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        {" ==> "}
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        {tutorAuslastungNew}
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        {" | "}
+                    </div>
+                    <div style={{ flexGrow: 1, flex: 1 }}>
+                        {amountOfferedSlotsForTutor}
+                    </div>
                 </div>
-            )
+            );
         }
         return renderedTutors;
     }
+
 
     function renderDownloadGroupsForTutor(){
         return(
@@ -275,9 +309,9 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         const footerStudip = (
             <div>
                 <Button label="Yes" icon="pi pi-check" onClick={() => {
-                    if(!!textImportValue && textImportValue.length > 0){
+                    if(!!displayStudipTableImportText && displayStudipTableImportText.length > 0){
                         try{
-                            let parsed = HtmlTableStudIp.htmlToJson(textImportValue);
+                            let parsed = HtmlTableStudIp.htmlToJson(displayStudipTableImportText);
                             setOldPlan(parsed);
                             setDisplayStudipTableImport(false);
                             setDisplayStudipTableImportText("");
@@ -304,7 +338,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                 </Dialog>
                 <Dialog header="Text import as JSON" visible={displayStudipTableImport} style={{ width: '50vw' }} footer={footerStudip} onHide={() => setDisplayBasic(false)}>
                     <p>Please paste the StudIp Table content as text inside</p>
-                    <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setDisplayStudipTableImportText(e.target.value)} >
+                    <InputTextarea rows={30} cols={80} value={displayStudipTableImportText} onChange={(e) => setDisplayStudipTableImportText(e.target.value)} >
 
                     </InputTextarea>
                 </Dialog>
@@ -454,7 +488,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         )
     }
 
-    function renderTutorInformations(){
+    function useRenderTutorInformations(){
         let amountOfGroups = Object.keys(oldPlan?.groups || {}).length;
 
         return(
@@ -469,15 +503,76 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                     <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"avail. slots"}</div>
                 </div>
                 <div style={{width: "100%"}}>
-                    {renderTutorAuslastung()}
+                    {useRenderTutorAuslastung()}
                 </div>
                 {renderSpitLine()}
                 {renderChanges()}
                 {renderSpitLine()}
                 {renderSingleGroups()}
+                {renderSpitLine()}
+                {renderTimeplanForTutors()}
             </>
         )
     }
+
+    function renderTimeplanForTutors() {
+        const plan = newPlan || oldPlan; // Use newPlan if available, otherwise fallback to oldPlan
+        const tutorsDict = plan?.tutors || {};
+        const groupsDict = plan?.groups || {};
+
+        // Render timeplans for each tutor
+        const renderedTimeplans = Object.keys(tutorsDict).map((tutorKey) => {
+            const tutorTimeplan: ReactNode[] = [];
+            const tutorSchedule = tutorsDict[tutorKey];
+
+            // Loop through each weekday
+            Object.keys(tutorSchedule).forEach((weekday) => {
+                const hours = tutorSchedule[weekday];
+
+                // Loop through each hour in the schedule
+                Object.keys(hours).forEach((hour) => {
+                    const groupsForTime = Object.keys(groupsDict).filter((groupKey) => {
+                        const group = groupsDict[groupKey];
+                        return (
+                            group.selectedSlot?.tutor === tutorKey &&
+                            group.selectedSlot?.day === weekday &&
+                            group.selectedSlot?.time === hour
+                        );
+                    });
+
+                    if(groupsForTime.length === 0) {
+                        return;
+                    }
+
+                    // Format groups as a comma-separated list
+                    const groupNames = groupsForTime.join(", ");
+
+                    // Add a row for this time slot
+                    tutorTimeplan.push(
+                        <div key={`${tutorKey}-${weekday}-${hour}`} style={{ margin: "5px 0" }}>
+                            <span><strong>{weekday}</strong> - {hour}: </span>
+                            <span>{groupNames || "No group assigned"}</span>
+                        </div>
+                    );
+                });
+            });
+
+            // Render tutor's timeplan
+            return(
+                <>
+                    <div key={tutorKey} style={{ marginBottom: "20px" }}>
+                        <h3>{tutorKey}</h3>
+                        <div>{tutorTimeplan}</div>
+                    </div>
+
+                    {renderSpitLine()}
+                </>
+            );
+        });
+
+        return <div>{renderedTimeplans}</div>;
+    }
+
 
     const uploadJSONOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
     const uploadHtmlOptions = {label: 'Load HTML Table', icon: 'pi pi-upload', className: 'p-button-success'};
@@ -508,7 +603,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
                 {renderDownloadAsStudipHTMLTableButton()}
             </div>
             {renderSpitLine()}
-            {renderTutorInformations()}
+            {useRenderTutorInformations()}
             {renderSpitLine()}
             {renderImportTextDialog()}
         </div>

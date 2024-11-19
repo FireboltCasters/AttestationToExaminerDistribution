@@ -19,6 +19,7 @@ interface TutorTimes {
 }
 
 interface Group {
+    members?: string[] | undefined
     selectedSlot: {
         tutor: string;
         day: string;
@@ -155,32 +156,50 @@ export default class HtmlTableStudIp {
 
             days.forEach((day, index) => {
                 const englishDay = weekdayTranslation[day];
-                $(cells[index + 1]).find('li').each((_: any, li: any) => {
-                    const text = $(li).text();
+                const cell = $(cells[index + 1]);
+                const lis = cell.find('li');
 
-                    if (text.startsWith('(bei ')) {
-                        const tutorName = text.match(/\(bei (.+?)\)/)[1].trim();
+                lis.each((_: any, li: any) => {
+                    const text = $(li).text().trim();
+
+                    // Check if the text contains a tutor
+                    const tutorMatch = text.match(/\(bei (.+?)\)/);
+                    if (tutorMatch) {
+                        const tutorName = tutorMatch[1].trim();
+
+                        // Mark this slot as available for the tutor
                         tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
                         tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
                         tutorsTimes[tutorName][englishDay][time] = true;
-                    } else {
-                        const [groupName, tutorName] = HtmlTableStudIp.extractGroupAndTutor(text);
 
-                        if (!groupName || !tutorName) return;
+                        // Extract potential group name if it exists
+                        const groupName = text.replace(tutorMatch[0], '').trim(); // Remove "(bei XXX)"
+                        if (groupName) {
+                            // Split groupName by "&" to get individual members
+                            const members: string[] = groupName.split('&').map((s: string) => s.trim());
 
-                        if (!groups[groupName]) {
-                            groups[groupName] = {
-                                selectedSlot: { tutor: tutorName, day: englishDay, time },
-                                possibleSlots: { [englishDay]: { [time]: true } },
-                            };
-                        } else {
-                            groups[groupName].possibleSlots[englishDay] = groups[groupName].possibleSlots[englishDay] || {};
-                            groups[groupName].possibleSlots[englishDay][time] = true;
+                            // Initialize or update group entry
+                            if (!groups[groupName]) {
+                                groups[groupName] = {
+                                    selectedSlot: { tutor: tutorName, day: englishDay, time },
+                                    possibleSlots: { [englishDay]: { [time]: true } },
+                                    members, // Set members directly
+                                };
+                            } else {
+                                groups[groupName].possibleSlots[englishDay] =
+                                    groups[groupName].possibleSlots[englishDay] || {};
+                                groups[groupName].possibleSlots[englishDay][time] = true;
+
+                                // Ensure members list is consistent
+                                let newMembers = [...members];
+                                const groupNameMembers = groups[groupName].members;
+                                if(groupNameMembers) {
+                                    newMembers.push(...groupNameMembers);
+                                }
+
+                                groups[groupName].members = newMembers
+                            }
                         }
-
-                        tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
-                        tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
-                        tutorsTimes[tutorName][englishDay][time] = true;
                     }
                 });
             });
@@ -188,6 +207,8 @@ export default class HtmlTableStudIp {
 
         return [groups, tutorsTimes];
     }
+
+
 
 
     static htmlToJson(htmlData: string): any {
