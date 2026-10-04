@@ -7,19 +7,22 @@ import {Dropdown} from "primereact/dropdown";
 import DownloadHelper from "../helper/DownloadHelper";
 import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
+import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {JSONToGraph} from "../../api/src";
 import HtmlTableStudIp from "../helper/HtmlTableStudIp";
 import {Language, LANGUAGE_OPTIONS, useI18n} from "../i18n/I18n";
 import {getTutorColor} from "./PlanTypes";
+import {HistoryEntry, HistoryLabel} from "./usePlanHistory";
 
 export interface AppState {
     oldPlan: any;
     newPlan: any;
-    commitPlans: (oldPlan: any, newPlan: any, undoable: boolean) => void;
+    commitPlans: (oldPlan: any, newPlan: any, label: HistoryLabel) => void;
     switchMode: boolean;
     setSwitchMode: (active: boolean) => void;
-    canUndo: boolean;
-    undo: () => void;
+    historyEntries: HistoryEntry[];
+    historyIndex: number;
+    goToHistory: (index: number) => void;
     hideEmptyRows: boolean;
     setHideEmptyRows: (hide: boolean) => void;
     reloadNumber: number;
@@ -35,7 +38,6 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
     const [jsonTextImportValue, setJsonTextImportValue] = useState("");
     const [displayStudipTableImport, setDisplayStudipTableImport] = useState(false);
     const [studipTableImportValue, setStudipTableImportValue] = useState("");
-    const [, setMultiplierChangeCounter] = useState(0);
     const [multiplierDrafts, setMultiplierDrafts] = useState<Record<string, string>>({});
 
     function formatMultiplier(multiplier: number): string {
@@ -45,8 +47,27 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
 
     const usePlan = newPlan || oldPlan;
 
-    function importPlan(plan: any) {
-        commitPlans(plan, null, false);
+    /**
+     * Saves the typed multiplier as a new entry of the history. Decimal numbers with comma or dot are allowed, e.g. 1,5
+     */
+    function commitMultiplier(tutor: string) {
+        let text = multiplierDrafts[tutor];
+        let nextDrafts = {...multiplierDrafts};
+        delete nextDrafts[tutor];
+        setMultiplierDrafts(nextDrafts);
+        if(text === undefined || !/^\s*\d+([.,]\d*)?\s*$/.test(text) || !oldPlan) {
+            return;
+        }
+        let value = JSONToGraph.parseTutorMultiplier(text);
+        if(value === JSONToGraph.parseTutorMultiplier(oldPlan.tutorMultipliers?.[tutor])) {
+            return;
+        }
+        let withMultiplier = (plan: any) => plan ? {...plan, tutorMultipliers: {...(plan.tutorMultipliers || {}), [tutor]: value}} : plan;
+        commitPlans(withMultiplier(oldPlan), withMultiplier(newPlan), {key: "history.multiplier", params: {tutor, value}});
+    }
+
+    function importPlan(plan: any, labelKey: string) {
+        commitPlans(plan, null, {key: labelKey});
         setReloadNumber(reloadNumber + 1);
     }
 
@@ -72,16 +93,16 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
         readFile(event, async (content) => {
             let json = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(content);
             DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json");
-            importPlan(json);
+            importPlan(json, "history.importCsv");
         });
     }
 
     function handleImportJson(event: any) {
-        readFile(event, (content) => importPlan(JSON.parse(content)));
+        readFile(event, (content) => importPlan(JSON.parse(content), "history.importJson"));
     }
 
     function handleImportHtmlTable(event: any) {
-        readFile(event, (content) => importPlan(HtmlTableStudIp.htmlToJson(content)));
+        readFile(event, (content) => importPlan(HtmlTableStudIp.htmlToJson(content), "history.importHtml"));
     }
 
     function handleExport() {
@@ -134,15 +155,20 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                 <h3>{t("section.edit")}</h3>
                 <div className="atd-buttons">
                     <Button label={t("edit.mergeSingleGroups")} icon="pi pi-users" className="p-button-outlined" disabled={!oldPlan}
-                            onClick={() => commitPlans(GraphHelper.mergeSingleGroups(oldPlan), null, true)}/>
+                            onClick={() => commitPlans(GraphHelper.mergeSingleGroups(oldPlan), null, {key: "history.mergeSingleGroups"})}/>
                     <Button label={t("edit.optimize")} icon="pi pi-bolt" disabled={!oldPlan}
-                            onClick={() => commitPlans(oldPlan, GraphHelper.getOptimizedDistribution(oldPlan), true)}/>
+                            onClick={() => commitPlans(oldPlan, GraphHelper.getOptimizedDistribution(oldPlan), {key: "history.optimize"})}/>
                     <Button label={props.switchMode ? t("switch.cancel") : t("edit.switch")} icon="pi pi-arrows-h"
                             className={props.switchMode ? "p-button-help" : "p-button-outlined p-button-help"}
                             onClick={() => props.setSwitchMode(!props.switchMode)}/>
-                    <Button label={t("edit.undo")} icon="pi pi-undo" className="p-button-outlined p-button-secondary" disabled={!props.canUndo} onClick={props.undo}/>
+                    <Button label={t("edit.undo")} icon="pi pi-undo" className="p-button-outlined p-button-secondary" disabled={props.historyIndex <= 0}
+                            tooltip={t("history.shortcutBack")} tooltipOptions={{position: "bottom"}}
+                            onClick={() => props.goToHistory(props.historyIndex - 1)}/>
+                    <Button label={t("edit.redo")} icon="pi pi-refresh" className="p-button-outlined p-button-secondary" disabled={props.historyIndex >= props.historyEntries.length - 1}
+                            tooltip={t("history.shortcutForward")} tooltipOptions={{position: "bottom"}}
+                            onClick={() => props.goToHistory(props.historyIndex + 1)}/>
                     <Button label={t("edit.resetChanges")} icon="pi pi-replay" className="p-button-outlined p-button-danger" disabled={!newPlan}
-                            onClick={() => commitPlans(oldPlan, null, true)}/>
+                            onClick={() => commitPlans(oldPlan, null, {key: "history.resetChanges"})}/>
                 </div>
                 <label className="atd-checkbox">
                     <input type="checkbox" checked={props.hideEmptyRows} onChange={(e) => props.setHideEmptyRows(e.target.checked)}/>
@@ -225,21 +251,13 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                                 <td className="atd-num">
                                     <input type="text" inputMode="decimal" className="atd-multiplier"
                                            value={multiplierDrafts[tutor] ?? formatMultiplier(JSONToGraph.parseTutorMultiplier(multiplier))}
-                                           onChange={(e) => {
-                                               let text = e.target.value;
-                                               setMultiplierDrafts({...multiplierDrafts, [tutor]: text});
-                                               // decimal numbers with comma or dot, e.g. 1,5
-                                               if(/^\s*\d+([.,]\d*)?\s*$/.test(text) && oldPlan) {
-                                                   oldPlan.tutorMultipliers = oldPlan.tutorMultipliers || {};
-                                                   oldPlan.tutorMultipliers[tutor] = JSONToGraph.parseTutorMultiplier(text);
-                                                   setMultiplierChangeCounter((counter) => counter + 1);
+                                           onChange={(e) => setMultiplierDrafts({...multiplierDrafts, [tutor]: e.target.value})}
+                                           onKeyDown={(e) => {
+                                               if(e.key === "Enter") {
+                                                   (e.target as HTMLInputElement).blur();
                                                }
                                            }}
-                                           onBlur={() => {
-                                               let nextDrafts = {...multiplierDrafts};
-                                               delete nextDrafts[tutor];
-                                               setMultiplierDrafts(nextDrafts);
-                                           }}/>
+                                           onBlur={() => commitMultiplier(tutor)}/>
                                 </td>
                                 <td className="atd-num">{(groupsForTutorInOldPlan[tutor] || []).length}</td>
                                 <td className="atd-num">{amountNew === undefined ? "–" : amountNew}</td>
@@ -301,7 +319,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
 
     function renderSingleGroupsSection() {
         let groups = usePlan?.groups || {};
-        let singleGroupNames = Object.keys(groups).filter((groupName) => (groups[groupName]?.members || []).length === 1);
+        let singleGroupNames = Object.keys(groups).filter((groupName) => PlanEditHelper.getMembers(usePlan, groupName).length === 1);
 
         return (
             <div className="atd-panel">
@@ -329,6 +347,50 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                         </tbody>
                     </table>
                 )}
+            </div>
+        );
+    }
+
+    function formatHistoryLabel(entry: HistoryEntry): string {
+        let params: Record<string, string | number> = {};
+        for(const [name, value] of Object.entries(entry.label.params || {})) {
+            if(name === "day" || name === "fromDay") {
+                params[name] = t("weekday." + value);
+            } else if(typeof value === "number") {
+                params[name] = value.toLocaleString(language);
+            } else {
+                params[name] = value;
+            }
+        }
+        return t(entry.label.key, params);
+    }
+
+    function renderHistorySection() {
+        let entries = props.historyEntries;
+        let rows: ReactNode[] = [];
+        for(let index = entries.length - 1; index >= 0; index--) {
+            let entry = entries[index];
+            let className = "atd-history-entry";
+            if(index === props.historyIndex) {
+                className += " atd-history-current";
+            } else if(index > props.historyIndex) {
+                className += " atd-history-future";
+            }
+            rows.push(
+                <li key={index + "-" + entry.time}>
+                    <button type="button" className={className} onClick={() => props.goToHistory(index)}>
+                        <span className="atd-history-time">{new Date(entry.time).toLocaleTimeString(language, {hour: "2-digit", minute: "2-digit"})}</span>
+                        <span className="atd-history-label">{formatHistoryLabel(entry)}</span>
+                        {index === props.historyIndex ? <i className="pi pi-map-marker"/> : null}
+                    </button>
+                </li>
+            );
+        }
+        return (
+            <div className="atd-panel">
+                <h3>{t("history.title", {current: props.historyIndex + 1, count: entries.length})}</h3>
+                <div className="atd-muted" style={{marginBottom: 8}}>{t("history.hint")}</div>
+                <ol className="atd-history">{rows}</ol>
             </div>
         );
     }
@@ -381,7 +443,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                 <Button label={t("modal.cancel")} icon="pi pi-times" className="p-button-text" onClick={() => setDisplayJsonTextImport(false)}/>
                 <Button label={t("modal.ok")} icon="pi pi-check" onClick={() => {
                     try {
-                        importPlan(JSON.parse(jsonTextImportValue));
+                        importPlan(JSON.parse(jsonTextImportValue), "history.importJson");
                         setDisplayJsonTextImport(false);
                         setJsonTextImportValue("");
                     } catch (err) {
@@ -397,7 +459,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                 <Button label={t("modal.cancel")} icon="pi pi-times" className="p-button-text" onClick={() => setDisplayStudipTableImport(false)}/>
                 <Button label={t("modal.ok")} icon="pi pi-check" onClick={() => {
                     try {
-                        importPlan(HtmlTableStudIp.htmlToJson(studipTableImportValue));
+                        importPlan(HtmlTableStudIp.htmlToJson(studipTableImportValue), "history.importHtml");
                         setDisplayStudipTableImport(false);
                         setStudipTableImportValue("");
                     } catch (err) {
@@ -427,6 +489,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
             {renderLanguageSection()}
             {renderImportSection()}
             {renderEditSection()}
+            {renderHistorySection()}
             {renderExportSection()}
             {renderTutorSection()}
             {renderChangesSection()}

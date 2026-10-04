@@ -9,20 +9,19 @@ import {ExampleCSVContent, JSONToGraph} from "./../../api/src/";
 import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {useI18n} from "../i18n/I18n";
 import {DragPayload, EditTarget, getSelectionKey, getSlotKey, getTutorColor, Selection, SlotRef} from "./PlanTypes";
+import {HistoryLabel, usePlanHistory} from "./usePlanHistory";
 import "./Plan.css";
 
 type PlanFunction = (plan: any) => any;
-
-const MAX_HISTORY = 50;
 
 export const AttestationToExaminerDistribution: FunctionComponent = () => {
 
     const {t} = useI18n();
     const toast = useRef<Toast>(null);
     const [reloadNumber, setReloadNumber] = useState(0);
-    const [oldPlan, setOldPlan] = useState<any>(ExampleCSVContent.getExampleParsedJSON());
-    const [newPlan, setNewPlan] = useState<any>(null);
-    const [history, setHistory] = useState<{oldPlan: any, newPlan: any}[]>([]);
+    const history = usePlanHistory(() => ExampleCSVContent.getExampleParsedJSON(), {key: "history.initial"});
+    const oldPlan = history.oldPlan;
+    const newPlan = history.newPlan;
 
     const [switchMode, setSwitchMode] = useState(false);
     const [selections, setSelections] = useState<Selection[]>([]);
@@ -40,23 +39,50 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
         document.title = t("title");
     }, [t]);
 
+    // keyboard shortcuts for the history: ctrl/cmd + z = back, ctrl/cmd + y or ctrl/cmd + shift + z = forward
+    useEffect(() => {
+        function handleKeyDown(event: KeyboardEvent) {
+            let target = event.target as HTMLElement | null;
+            if(target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+                return;
+            }
+            if(!(event.ctrlKey || event.metaKey)) {
+                return;
+            }
+            let key = event.key.toLowerCase();
+            if(key === "z" && !event.shiftKey) {
+                event.preventDefault();
+                goToHistory(history.index - 1);
+            } else if(key === "y" || (key === "z" && event.shiftKey)) {
+                event.preventDefault();
+                goToHistory(history.index + 1);
+            }
+        }
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    });
+
     function showToast(severity: "success" | "info" | "warn" | "error", detail: string) {
         toast.current?.show({severity, summary: detail, life: 3000});
     }
 
     // ---------- Plan changes ----------
 
+    function goToHistory(index: number) {
+        if(index < 0 || index >= history.entries.length) {
+            return;
+        }
+        history.goTo(index);
+        setSelections([]);
+        setEditTarget(null);
+        setPendingGroupDrop(null);
+    }
+
     /**
      * Sets both plans at once. Used by the toolbar (import, optimize, ...)
      */
-    function commitPlans(nextOldPlan: any, nextNewPlan: any, undoable: boolean) {
-        if(undoable) {
-            setHistory([...history.slice(-MAX_HISTORY + 1), {oldPlan, newPlan}]);
-        } else {
-            setHistory([]);
-        }
-        setOldPlan(nextOldPlan);
-        setNewPlan(nextNewPlan);
+    function commitPlans(nextOldPlan: any, nextNewPlan: any, label: HistoryLabel) {
+        history.record(nextOldPlan, nextNewPlan, label);
         setSelections([]);
         setEditTarget(null);
     }
@@ -67,48 +93,42 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
      *             so both plans stay comparable.
      * assignment: changes which group is at which slot and is applied to the new plan only, so it is listed as change.
      */
-    function applyEdit(structural: PlanFunction | null, assignment: PlanFunction | null) {
+    function applyEdit(label: HistoryLabel, structural: PlanFunction | null, assignment: PlanFunction | null) {
         let nextOldPlan = structural ? structural(oldPlan) : oldPlan;
         let nextNewPlan = newPlan ? (structural ? structural(newPlan) : newPlan) : null;
         if(assignment) {
             nextNewPlan = assignment(nextNewPlan || nextOldPlan);
         }
-        setHistory([...history.slice(-MAX_HISTORY + 1), {oldPlan, newPlan}]);
-        setOldPlan(nextOldPlan);
-        setNewPlan(nextNewPlan);
+        history.record(nextOldPlan, nextNewPlan, label);
     }
 
-    function undo() {
-        let last = history[history.length - 1];
-        if(!last) {
-            return;
-        }
-        setHistory(history.slice(0, -1));
-        setOldPlan(last.oldPlan);
-        setNewPlan(last.newPlan);
-        setSelections([]);
-        setEditTarget(null);
+    function slotParams(slot: SlotRef) {
+        return {tutor: slot.tutor, day: slot.day, time: slot.time};
     }
 
     function moveGroupToSlot(groupName: string, slot: SlotRef) {
-        applyEdit(null, (plan) => PlanEditHelper.moveGroupToSlot(plan, groupName, slot));
+        applyEdit({key: "history.moveGroup", params: {group: groupName, ...slotParams(slot)}},
+            null, (plan) => PlanEditHelper.moveGroupToSlot(plan, groupName, slot));
     }
 
     function swapGroups(groupNameA: string, groupNameB: string) {
-        applyEdit(null, (plan) => PlanEditHelper.swapGroups(plan, groupNameA, groupNameB));
+        applyEdit({key: "history.swapGroups", params: {a: groupNameA, b: groupNameB}},
+            null, (plan) => PlanEditHelper.swapGroups(plan, groupNameA, groupNameB));
     }
 
     function mergeGroups(sourceGroupName: string, targetGroupName: string) {
-        applyEdit((plan) => PlanEditHelper.mergeGroups(plan, sourceGroupName, targetGroupName).plan, null);
+        applyEdit({key: "history.mergeGroups", params: {source: sourceGroupName, target: targetGroupName}},
+            (plan) => PlanEditHelper.mergeGroups(plan, sourceGroupName, targetGroupName).plan, null);
     }
 
     function moveMemberToGroup(sourceGroupName: string, member: string, targetGroupName: string) {
-        applyEdit((plan) => PlanEditHelper.moveMemberToGroup(plan, sourceGroupName, member, targetGroupName).plan, null);
+        applyEdit({key: "history.moveMember", params: {member, source: sourceGroupName, target: targetGroupName}},
+            (plan) => PlanEditHelper.moveMemberToGroup(plan, sourceGroupName, member, targetGroupName).plan, null);
     }
 
     function moveMemberToSlot(sourceGroupName: string, member: string, slot: SlotRef) {
         let createdGroupName: string | undefined = undefined;
-        applyEdit((plan) => {
+        applyEdit({key: "history.moveMemberToSlot", params: {member, ...slotParams(slot)}}, (plan) => {
             let result = PlanEditHelper.splitMemberFromGroup(plan, sourceGroupName, member);
             createdGroupName = result.groupName;
             return result.plan;
@@ -120,7 +140,8 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
             showToast("warn", t("dnd.slotTaken"));
             return false;
         }
-        applyEdit((plan) => PlanEditHelper.moveTutorSlot(plan, slot, day, time), null);
+        applyEdit({key: "history.moveTutorSlot", params: {tutor: slot.tutor, fromDay: slot.day, fromTime: slot.time, day, time}},
+            (plan) => PlanEditHelper.moveTutorSlot(plan, slot, day, time), null);
         return true;
     }
 
@@ -256,7 +277,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
         let slot: SlotRef = group.selectedSlot;
         let oldSlot: SlotRef | undefined = newPlan ? oldPlan?.groups?.[groupName]?.selectedSlot : undefined;
         let changed = !!newPlan && (!oldSlot || getSlotKey(oldSlot) !== getSlotKey(slot));
-        let members: string[] = group.members || [];
+        let members: string[] = PlanEditHelper.getMembers(currentPlan, groupName);
         let tutorKnown = !!currentPlan.tutors?.[slot.tutor];
 
         let selection: Selection = {kind: "group", groupName, slot};
@@ -444,7 +465,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                 onHide={() => setEditTarget(null)}
                 onSaveMembers={(groupName, members) => {
                     let renamedGroupName: string | undefined = undefined;
-                    applyEdit((plan) => {
+                    applyEdit({key: "history.editMembers", params: {group: groupName}}, (plan) => {
                         let result = PlanEditHelper.setGroupMembers(plan, groupName, members);
                         renamedGroupName = result.groupName;
                         return result.plan;
@@ -452,25 +473,25 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     setEditTarget(renamedGroupName ? {kind: "group", groupName: renamedGroupName} : null);
                 }}
                 onAssignSlot={(groupName, slot) => closeAfter(() => moveGroupToSlot(groupName, slot))}
-                onSplitGroup={(groupName) => closeAfter(() => applyEdit((plan) => PlanEditHelper.splitGroup(plan, groupName), null))}
-                onDeleteGroup={(groupName) => closeAfter(() => applyEdit((plan) => PlanEditHelper.deleteGroup(plan, groupName), null))}
-                onSaveCondition={(slot, condition) => closeAfter(() => applyEdit((plan) => PlanEditHelper.setTutorSlotCondition(plan, slot, condition), null))}
+                onSplitGroup={(groupName) => closeAfter(() => applyEdit({key: "history.splitGroup", params: {group: groupName}},
+                    (plan) => PlanEditHelper.splitGroup(plan, groupName), null))}
+                onDeleteGroup={(groupName) => closeAfter(() => applyEdit({key: "history.deleteGroup", params: {group: groupName}},
+                    (plan) => PlanEditHelper.deleteGroup(plan, groupName), null))}
+                onSaveCondition={(slot, condition) => closeAfter(() => applyEdit({key: "history.condition", params: {...slotParams(slot), condition: condition.trim() || "–"}},
+                    (plan) => PlanEditHelper.setTutorSlotCondition(plan, slot, condition), null))}
                 onMoveTutorSlot={(slot, day, time) => {
                     if(moveTutorSlot(slot, day, time)) {
                         setEditTarget(null);
                     }
                 }}
-                onDeleteTutorSlot={(slot) => closeAfter(() => applyEdit((plan) => PlanEditHelper.deleteTutorSlot(plan, slot), null))}
+                onDeleteTutorSlot={(slot) => closeAfter(() => applyEdit({key: "history.deleteTutorSlot", params: slotParams(slot)},
+                    (plan) => PlanEditHelper.deleteTutorSlot(plan, slot), null))}
                 onAddGroup={(slot, members) => closeAfter(() => {
-                    let createdGroupName: string | undefined = undefined;
                     // the new group is created at this slot in the old plan too, so it does not show up as a change
-                    applyEdit((plan) => {
+                    applyEdit({key: "history.addGroup", params: {group: members.map((m) => m.trim()).filter((m) => m).join(" & "), ...slotParams(slot)}}, (plan) => {
                         let withSlot = PlanEditHelper.tutorHasSlot(plan, slot) ? plan : PlanEditHelper.addTutorSlot(plan, slot);
-                        let result = PlanEditHelper.addGroup(withSlot, members, slot);
-                        createdGroupName = result.groupName;
-                        return result.plan;
+                        return PlanEditHelper.addGroup(withSlot, members, slot).plan;
                     }, null);
-                    return createdGroupName;
                 })}
             />
         );
@@ -497,8 +518,9 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     commitPlans={commitPlans}
                     switchMode={switchMode}
                     setSwitchMode={setSwitchModeActive}
-                    canUndo={history.length > 0}
-                    undo={undo}
+                    historyEntries={history.entries}
+                    historyIndex={history.index}
+                    goToHistory={goToHistory}
                     hideEmptyRows={hideEmptyRows}
                     setHideEmptyRows={setHideEmptyRows}
                     reloadNumber={reloadNumber}

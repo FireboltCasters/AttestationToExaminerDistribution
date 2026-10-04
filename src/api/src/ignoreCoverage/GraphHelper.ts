@@ -1,4 +1,5 @@
 import JSONToGraph from "./JSONToGraph";
+import PlanEditHelper from "./PlanEditHelper";
 import jsgraphs from "js-graph-algorithms";
 
 export default class GraphHelper {
@@ -478,7 +479,7 @@ export default class GraphHelper {
 
                     if (useSelectedSlot.day === day && useSelectedSlot.time === time) {
                         let currentGroup = oldGroups?.[currentGroupName];
-                        let members = currentGroup.members;
+                        let members = PlanEditHelper.getMembers(unoptimizedJSON, currentGroupName);
                         if(members.length === 1){
                             console.log("Found single group: " + currentGroupName + " at " + day + " " + time)
                             singleGroups.push(currentGroupName);
@@ -487,9 +488,8 @@ export default class GraphHelper {
                                 // we have at least 2 single groups at the same time and day, so we can merge them
                                 // lets get the two members
                                 let otherGroupName = singleGroups[0];
-                                let otherGroup = oldGroups?.[otherGroupName];
-                                let otherGroupMember = otherGroup.members[0];
-                                let currentGroupMember = currentGroup.members[0];
+                                let otherGroupMember = PlanEditHelper.getMembers(unoptimizedJSON, otherGroupName)[0];
+                                let currentGroupMember = members[0];
 
                                 // lets add the member of the other group to the current group
                                 let groupMembers = [otherGroupMember, currentGroupMember];

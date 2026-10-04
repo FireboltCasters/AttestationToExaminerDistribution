@@ -39,7 +39,7 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
     const condition = slot ? JSONToGraph.getTutorSlotCondition(plan, slot.tutor, slot.day, slot.time) : undefined;
 
     useEffect(() => {
-        setMemberDrafts(group?.members ? [...group.members] : []);
+        setMemberDrafts(target?.kind === "group" && group ? [...PlanEditHelper.getMembers(plan, target.groupName)] : []);
         setAssignSlotKey(null);
         setConditionDraft(condition || "");
         setMoveDay(slot?.day || null);
@@ -116,7 +116,7 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
                 <div className="atd-edit-section">
                     <h4>{t("section.edit")}</h4>
                     <div className="atd-buttons">
-                        <Button label={t("modal.split")} icon="pi pi-users" className="p-button-outlined p-button-sm" disabled={(group?.members || []).length < 2} onClick={() => props.onSplitGroup(groupName)}/>
+                        <Button label={t("modal.split")} icon="pi pi-users" className="p-button-outlined p-button-sm" disabled={PlanEditHelper.getMembers(plan, groupName).length < 2} onClick={() => props.onSplitGroup(groupName)}/>
                         <Button label={t("modal.deleteGroup")} icon="pi pi-trash" className="p-button-danger p-button-outlined p-button-sm" onClick={() => {
                             confirmDialog({
                                 message: t("modal.deleteGroupConfirm", {group: groupName}),

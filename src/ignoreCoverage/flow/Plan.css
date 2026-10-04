@@ -356,6 +356,65 @@
     font-size: 0.82rem;
 }
 
+/* History */
+.atd-history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.atd-history-entry {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    font: inherit;
+    font-size: 0.82rem;
+    color: var(--text-color, #495057);
+    text-align: left;
+    cursor: pointer;
+}
+
+.atd-history-entry:hover {
+    background: #f1f5f9;
+}
+
+.atd-history-current {
+    background: #eef2ff;
+    border-color: var(--primary-color, #6366F1);
+    font-weight: 600;
+}
+
+.atd-history-future {
+    color: var(--text-color-secondary, #6c757d);
+    opacity: 0.6;
+}
+
+.atd-history-time {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-color-secondary, #6c757d);
+    flex-shrink: 0;
+}
+
+.atd-history-label {
+    flex: 1;
+    overflow-wrap: anywhere;
+}
+
+.atd-history-entry .pi {
+    color: var(--primary-color, #6366F1);
+    font-size: 0.8rem;
+}
+
 /* Edit modal */
 .p-sidebar-bottom .p-sidebar.atd-edit-sheet {
     height: auto;

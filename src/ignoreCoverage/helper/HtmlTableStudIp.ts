@@ -1,112 +1,108 @@
-import React, {Component} from "react";
 import {JSONToGraph} from "../../api/src";
 import cheerio from 'cheerio';
+import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
+import StudIPTableEntry from "../../api/src/ignoreCoverage/StudIPTableEntry";
+import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 
+// german and english weekday names of the table header => internal weekday
 const weekdayTranslation: Record<string, string> = {
-    Montag: 'Monday',
-    Dienstag: 'Tuesday',
-    Mittwoch: 'Wednesday',
-    Donnerstag: 'Thursday',
-    Freitag: 'Friday',
+    montag: 'Monday',
+    dienstag: 'Tuesday',
+    mittwoch: 'Wednesday',
+    donnerstag: 'Thursday',
+    freitag: 'Friday',
+    samstag: 'Saturday',
+    sonntag: 'Sunday',
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
+    sunday: 'Sunday',
 };
 
-interface TutorTimes {
-    [tutor: string]: {
-        [day: string]: {
-            [time: string]: boolean;
-        };
-    };
-}
-
-interface Group {
-    members?: string[] | undefined
-    selectedSlot: {
-        tutor: string;
-        day: string;
-        time: string;
-    };
-    possibleSlots: {
-        [day: string]: {
-            [time: string]: boolean;
-        };
-    };
-}
-
-interface Data {
-    groups: { [name: string]: Group };
-    tutors: TutorTimes;
-    tutorMultipliers: { [tutor: string]: number };
-}
-
+/**
+ * Import and export of the plan as HTML table for Stud.IP.
+ * Every cell contains a list, every list item is one slot of a tutor, see StudIPTableEntry for the format:
+ * "Anna & Ben (bei Nils Baumgartner) [Präsenz]" or for a free slot "(bei Nils Baumgartner) [Präsenz]"
+ */
 export default class HtmlTableStudIp {
 
-    static getTableTdsFromList(list: string[]): string{
+    static escapeHtml(text: string): string {
+        return ("" + text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    static getTableTdsFromList(list: string[]): string {
         let tds = "";
-        for(let item of list){
-            tds += '\t\t\t<td>'+item+'</td>\n';
+        for(let item of list) {
+            tds += '\t\t\t<td>' + item + '</td>\n';
         }
         return tds;
     }
 
-    static getContentForCell(time: string, day: string, plan: any, tutors: TutorTimes): string {
+    static getContentForCell(time: string, day: string, plan: any): string {
         let groups = plan?.groups || {};
-        let groupNames = Object.keys(groups);
-        let content = "";
-        let listContent = "";
-        for (let groupName of groupNames) {
-            let group = groups[groupName];
-            let selectedSlot = group?.selectedSlot;
-            if (selectedSlot?.time === time && selectedSlot?.day === day) {
-                let tutor = selectedSlot?.tutor;
-                listContent += `\t\t\t\t<li>${groupName} (bei ${tutor})</li>\n`;
+        let tutors = plan?.tutors || {};
+        let entries: string[] = [];
+
+        let groupNames = Object.keys(groups)
+            .filter((groupName) => groups[groupName]?.selectedSlot?.time === time && groups[groupName]?.selectedSlot?.day === day)
+            .sort((a, b) => ("" + groups[a].selectedSlot.tutor).localeCompare("" + groups[b].selectedSlot.tutor) || a.localeCompare(b));
+        for(const groupName of groupNames) {
+            let tutor = groups[groupName].selectedSlot.tutor;
+            entries.push(StudIPTableEntry.format({
+                members: PlanEditHelper.getMembers(plan, groupName),
+                tutor: tutor,
+                condition: JSONToGraph.getTutorSlotCondition(plan, tutor, day, time),
+            }));
+        }
+
+        // free slots of the tutors
+        for(const tutor of Object.keys(tutors).sort()) {
+            let slot = {tutor, day, time};
+            if(PlanEditHelper.isTutorSlotFree(plan, slot)) {
+                entries.push(StudIPTableEntry.format({
+                    members: [],
+                    tutor: tutor,
+                    condition: JSONToGraph.getTutorSlotCondition(plan, tutor, day, time),
+                }));
             }
         }
 
-        // Check if any tutor is available at this timeslot
-        for (const tutor in tutors) {
-            if (tutors[tutor][day] && tutors[tutor][day][time]) {
-                // Check if this slot is not already taken by a group
-                if (!listContent.includes(`(bei ${tutor})`)) {
-                    listContent += `\t\t\t\t<li>(bei ${tutor})</li>\n`;
-                }
-            }
+        if(entries.length === 0) {
+            return "";
         }
-
-        if (listContent) {
-            content = `\t\t\t<ul>\n${listContent}\t\t\t</ul>\n`;
-        }
-        return content;
+        let listContent = entries.map((entry) => `\t\t\t\t<li>${HtmlTableStudIp.escapeHtml(entry)}</li>\n`).join("");
+        return `\t\t\t<ul>\n${listContent}\t\t\t</ul>\n`;
     }
-
 
     static getPlanAsStudipTable(newPlan: any, oldPlan: any) {
         let usePlan = newPlan || oldPlan;
-        let tutors = usePlan.tutors || {};
 
         let workingWeekdays = JSONToGraph.getWorkingWeekdays();
         let timeslots = JSONToGraph.getTimeslots(usePlan);
 
         let headerTexts = ["Uhrzeit"];
-        for (let weekday of workingWeekdays) {
-            let germanWeekday = JSONToGraph.getWeekdayTranslation(weekday);
-            headerTexts.push(germanWeekday);
+        for(let weekday of workingWeekdays) {
+            headerTexts.push(JSONToGraph.getWeekdayTranslation(weekday));
         }
         let header = '\t\t<tr>\n' +
             HtmlTableStudIp.getTableTdsFromList(headerTexts) +
             '\t\t</tr>';
 
         let rows = "";
-        for (let timeslot of timeslots) {
+        for(let timeslot of timeslots) {
             let rowTexts = [timeslot];
-            for (let weekday of workingWeekdays) {
-                let textForCell = HtmlTableStudIp.getContentForCell(timeslot, weekday, usePlan, tutors);
-                rowTexts.push(textForCell);
+            for(let weekday of workingWeekdays) {
+                rowTexts.push(HtmlTableStudIp.getContentForCell(timeslot, weekday, usePlan));
             }
-
-            let row = '\t\t<tr>\n' +
+            rows += '\t\t<tr>\n' +
                 HtmlTableStudIp.getTableTdsFromList(rowTexts) +
                 '\t\t</tr>\n';
-            rows += row;
         }
 
         return '<!--HTML-->\n<figure class="table">\n<table>\n' +
@@ -117,120 +113,82 @@ export default class HtmlTableStudIp {
             '</table>\n</figure>';
     }
 
-    static getTutorsList($: any): Set<string> {
-        const tutors = new Set<string>();
-        $('li').each((_: any, element: any) => {
-            const text = $(element).text();
-            const match = text.match(/\(bei (.+?)\)/);
-            if (match) {
-                tutors.add(match[1].trim());
-            }
+    /**
+     * Returns for every column of the table the weekday, using the header row (german or english names).
+     * Falls back to Monday - Friday.
+     */
+    static getColumnWeekdays($: any, headerRow: any): (string | undefined)[] {
+        let columnWeekdays: (string | undefined)[] = [];
+        $(headerRow).find('td, th').each((index: number, cell: any) => {
+            columnWeekdays[index] = weekdayTranslation[$(cell).text().trim().toLowerCase()];
         });
-        return tutors;
-    }
-
-    static extractGroupAndTutor(text: string): [string | null, string | null] {
-        const matchTwo = text.match(/(.+?) & (.+?) \(bei (.+?)\)/);
-        if (matchTwo) {
-            const groupName = matchTwo[1].trim() + ' & ' + matchTwo[2].trim();
-            const tutorName = matchTwo[3].trim();
-            return [groupName, tutorName];
+        if(columnWeekdays.filter((weekday) => !!weekday).length === 0) {
+            return [undefined, ...JSONToGraph.getWorkingWeekdays()];
         }
-
-        const matchOne = text.match(/(.+?) \(bei (.+?)\)/);
-        if (matchOne) {
-            return [matchOne[1].trim(), matchOne[2].trim()];
-        }
-
-        return [null, null];
+        return columnWeekdays;
     }
-
-    static parseHtmlForData($: any): [Record<string, Group>, TutorTimes] {
-        const days = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
-        const groups: Record<string, Group> = {};
-        const tutorsTimes: TutorTimes = {};
-
-        $('tr').slice(1).each((_: any, tr: any) => {
-            const cells = $(tr).find('td');
-            const time = cells.first().text().trim();
-
-            days.forEach((day, index) => {
-                const englishDay = weekdayTranslation[day];
-                const cell = $(cells[index + 1]);
-                const lis = cell.find('li');
-
-                lis.each((_: any, li: any) => {
-                    const text = $(li).text().trim();
-
-                    // Check if the text contains a tutor
-                    const tutorMatch = text.match(/\(bei (.+?)\)/);
-                    if (tutorMatch) {
-                        const tutorName = tutorMatch[1].trim();
-
-                        // Mark this slot as available for the tutor
-                        tutorsTimes[tutorName] = tutorsTimes[tutorName] || {};
-                        tutorsTimes[tutorName][englishDay] = tutorsTimes[tutorName][englishDay] || {};
-                        tutorsTimes[tutorName][englishDay][time] = true;
-
-                        // Extract potential group name if it exists
-                        const groupName = text.replace(tutorMatch[0], '').trim(); // Remove "(bei XXX)"
-                        if (groupName) {
-                            // Split groupName by "&" to get individual members
-                            const members: string[] = groupName.split('&').map((s: string) => s.trim());
-
-                            // Initialize or update group entry
-                            if (!groups[groupName]) {
-                                groups[groupName] = {
-                                    selectedSlot: { tutor: tutorName, day: englishDay, time },
-                                    possibleSlots: { [englishDay]: { [time]: true } },
-                                    members, // Set members directly
-                                };
-                            } else {
-                                groups[groupName].possibleSlots[englishDay] =
-                                    groups[groupName].possibleSlots[englishDay] || {};
-                                groups[groupName].possibleSlots[englishDay][time] = true;
-
-                                // Ensure members list is consistent
-                                let newMembers = [...members];
-                                const groupNameMembers = groups[groupName].members;
-                                if(groupNameMembers) {
-                                    newMembers.push(...groupNameMembers);
-                                }
-
-                                groups[groupName].members = newMembers
-                            }
-                        }
-                    }
-                });
-            });
-        });
-
-        return [groups, tutorsTimes];
-    }
-
-
-
 
     static htmlToJson(htmlData: string): any {
         const $ = cheerio.load(htmlData);
 
-        const data: Data = {
+        const data: any = {
             groups: {},
             tutors: {},
             tutorMultipliers: {},
+            tutorSlotConditions: {},
         };
 
-        const tutors = HtmlTableStudIp.getTutorsList($);
-        tutors.forEach((tutor) => {
-            data.tutors[tutor] = {};
-            data.tutorMultipliers[tutor] = 1;
-        });
+        let rows = $('tr').toArray();
+        if(rows.length === 0) {
+            return data;
+        }
+        let columnWeekdays = HtmlTableStudIp.getColumnWeekdays($, rows[0]);
 
-        const [groups, tutorsTimes] = HtmlTableStudIp.parseHtmlForData($);
+        for(const row of rows.slice(1)) {
+            const cells = $(row).find('td, th').toArray();
+            const time = ParseStudIPCSVToJSON.normalizeTime($(cells[0]).text().trim());
 
-        data.groups = groups;
-        for (const [tutor, times] of Object.entries(tutorsTimes)) {
-            data.tutors[tutor] = times;
+            cells.forEach((cell: any, index: number) => {
+                let day = columnWeekdays[index];
+                if(index === 0 || !day) {
+                    return;
+                }
+
+                $(cell).find('li').each((_: any, li: any) => {
+                    let entry = StudIPTableEntry.parse($(li).text());
+                    if(!entry) {
+                        return;
+                    }
+                    let tutor = entry.tutor;
+                    let slot = {tutor, day: day as string, time};
+
+                    data.tutors[tutor] = data.tutors[tutor] || {};
+                    data.tutors[tutor][slot.day] = data.tutors[tutor][slot.day] || {};
+                    data.tutors[tutor][slot.day][time] = true;
+                    if(data.tutorMultipliers[tutor] === undefined) {
+                        data.tutorMultipliers[tutor] = 1;
+                    }
+                    if(entry.condition) {
+                        data.tutorSlotConditions[tutor] = data.tutorSlotConditions[tutor] || {};
+                        data.tutorSlotConditions[tutor][slot.day] = data.tutorSlotConditions[tutor][slot.day] || {};
+                        data.tutorSlotConditions[tutor][slot.day][time] = entry.condition;
+                    }
+
+                    if(entry.members.length > 0) {
+                        let groupName = PlanEditHelper.getGroupNameFromMembers(entry.members);
+                        let group = data.groups[groupName];
+                        if(!group) {
+                            group = {
+                                members: [...entry.members],
+                                selectedSlot: slot,
+                                possibleSlots: {},
+                            };
+                            data.groups[groupName] = group;
+                        }
+                        PlanEditHelper.addPossibleSlot(group, slot.day, time);
+                    }
+                });
+            });
         }
 
         return data;

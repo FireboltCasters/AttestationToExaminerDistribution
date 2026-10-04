@@ -14,6 +14,14 @@ export default class PlanEditHelper {
         return JSON.parse(JSON.stringify(plan));
     }
 
+    /**
+     * Returns the members of a group. Older plans may have groups without members, then the group name is the member.
+     */
+    static getMembers(plan: any, groupName: string): string[] {
+        let members = plan?.groups?.[groupName]?.members;
+        return Array.isArray(members) && members.length > 0 ? members : [groupName];
+    }
+
     static getGroupNameFromMembers(members: string[]): string {
         return members.join(" & ");
     }
@@ -98,7 +106,7 @@ export default class PlanEditHelper {
             return {plan: newPlan, groupName: targetGroupName};
         }
         let members: string[] = [];
-        for(const member of [...(target.members || [targetGroupName]), ...(source.members || [sourceGroupName])]) {
+        for(const member of [...PlanEditHelper.getMembers(newPlan, targetGroupName), ...PlanEditHelper.getMembers(newPlan, sourceGroupName)]) {
             if(!members.includes(member)) {
                 members.push(member);
             }
@@ -172,7 +180,7 @@ export default class PlanEditHelper {
         if(!group) {
             return {plan: PlanEditHelper.clone(plan), groupName: undefined};
         }
-        let remainingMembers = (group.members || []).filter((m: string) => m !== member);
+        let remainingMembers = PlanEditHelper.getMembers(plan, groupName).filter((m: string) => m !== member);
         let newPlan = PlanEditHelper.setGroupMembers(plan, groupName, remainingMembers).plan;
         newPlan.groups = newPlan.groups || {};
         let newGroupName = PlanEditHelper.getUniqueGroupName(newPlan, member);
@@ -193,7 +201,7 @@ export default class PlanEditHelper {
         if(!group) {
             return newPlan;
         }
-        for(const member of (group.members || [])) {
+        for(const member of PlanEditHelper.getMembers(plan, groupName)) {
             let memberGroupName = PlanEditHelper.getUniqueGroupName(newPlan, member);
             newPlan.groups[memberGroupName] = {
                 members: [member],
@@ -221,9 +229,9 @@ export default class PlanEditHelper {
         if(!source || !target) {
             return {plan: PlanEditHelper.clone(plan), groupName: undefined};
         }
-        let remainingMembers = (source.members || []).filter((m: string) => m !== member);
+        let remainingMembers = PlanEditHelper.getMembers(plan, sourceGroupName).filter((m: string) => m !== member);
         let newPlan = PlanEditHelper.setGroupMembers(plan, sourceGroupName, remainingMembers).plan;
-        let targetMembers = [...(target.members || [])];
+        let targetMembers = [...PlanEditHelper.getMembers(plan, targetGroupName)];
         if(!targetMembers.includes(member)) {
             targetMembers.push(member);
         }
