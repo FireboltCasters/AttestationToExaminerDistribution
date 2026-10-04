@@ -201,16 +201,17 @@ export default class GraphHelper {
 
     static getDictTutorDistributionInformation(unoptimizedJSON: any, maxTutorCapacity: any){
         let tutorDistribution = GraphHelper.getDictTutorToAmountGroups(unoptimizedJSON);
+        let integerTutorMultipliers = JSONToGraph.getIntegerTutorMultipliers(unoptimizedJSON);
         let dictTutorDistributionInformation = {};
         for(let tutor in tutorDistribution){
             let amountGroups = tutorDistribution[tutor];
-            let multiplier = unoptimizedJSON?.tutorMultipliers?.[tutor] || 1
+            let multiplier = integerTutorMultipliers[tutor] ?? 1
             let aimedMaxCapacity = maxTutorCapacity * multiplier;
             // @ts-ignore
             dictTutorDistributionInformation[tutor] = {
                 amountGroups: amountGroups,
                 aimedMaxCapacity: aimedMaxCapacity,
-                percentage: amountGroups / aimedMaxCapacity
+                percentage: aimedMaxCapacity > 0 ? amountGroups / aimedMaxCapacity : (amountGroups > 0 ? Infinity : 0)
             }
         }
         return dictTutorDistributionInformation;

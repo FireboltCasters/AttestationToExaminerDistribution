@@ -36,6 +36,12 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
     const [displayStudipTableImport, setDisplayStudipTableImport] = useState(false);
     const [studipTableImportValue, setStudipTableImportValue] = useState("");
     const [, setMultiplierChangeCounter] = useState(0);
+    const [multiplierDrafts, setMultiplierDrafts] = useState<Record<string, string>>({});
+
+    function formatMultiplier(multiplier: number): string {
+        let text = "" + multiplier;
+        return language === "de" ? text.replace(".", ",") : text;
+    }
 
     const usePlan = newPlan || oldPlan;
 
@@ -199,7 +205,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                     <thead>
                     <tr>
                         <th>{t("table.tutor")}</th>
-                        <th className="atd-num">{t("table.multiplier")}</th>
+                        <th className="atd-num" title={t("table.multiplierHint")}>{t("table.multiplier")}</th>
                         <th className="atd-num">{t("table.before")}</th>
                         <th className="atd-num">{t("table.after")}</th>
                         <th className="atd-num">{t("table.offered")}</th>
@@ -217,14 +223,23 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                                     {known ? tutor : t("slot.unknownTutor", {tutor})}
                                 </td>
                                 <td className="atd-num">
-                                    <input type="number" value={multiplier} onChange={(e) => {
-                                        const value = parseInt(e.target.value, 10);
-                                        if(!isNaN(value) && oldPlan) {
-                                            oldPlan.tutorMultipliers = oldPlan.tutorMultipliers || {};
-                                            oldPlan.tutorMultipliers[tutor] = value;
-                                            setMultiplierChangeCounter((counter) => counter + 1);
-                                        }
-                                    }}/>
+                                    <input type="text" inputMode="decimal" className="atd-multiplier"
+                                           value={multiplierDrafts[tutor] ?? formatMultiplier(JSONToGraph.parseTutorMultiplier(multiplier))}
+                                           onChange={(e) => {
+                                               let text = e.target.value;
+                                               setMultiplierDrafts({...multiplierDrafts, [tutor]: text});
+                                               // decimal numbers with comma or dot, e.g. 1,5
+                                               if(/^\s*\d+([.,]\d*)?\s*$/.test(text) && oldPlan) {
+                                                   oldPlan.tutorMultipliers = oldPlan.tutorMultipliers || {};
+                                                   oldPlan.tutorMultipliers[tutor] = JSONToGraph.parseTutorMultiplier(text);
+                                                   setMultiplierChangeCounter((counter) => counter + 1);
+                                               }
+                                           }}
+                                           onBlur={() => {
+                                               let nextDrafts = {...multiplierDrafts};
+                                               delete nextDrafts[tutor];
+                                               setMultiplierDrafts(nextDrafts);
+                                           }}/>
                                 </td>
                                 <td className="atd-num">{(groupsForTutorInOldPlan[tutor] || []).length}</td>
                                 <td className="atd-num">{amountNew === undefined ? "–" : amountNew}</td>

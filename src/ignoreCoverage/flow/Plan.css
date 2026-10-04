@@ -329,7 +329,8 @@
     font-variant-numeric: tabular-nums;
 }
 
-.atd-table input[type="number"] {
+.atd-table input.atd-multiplier {
+    text-align: right;
     width: 52px;
     padding: 2px 4px;
     border: 1px solid var(--surface-border, #dfe7ef);

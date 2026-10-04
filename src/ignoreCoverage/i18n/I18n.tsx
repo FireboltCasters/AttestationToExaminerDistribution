@@ -66,6 +66,7 @@ const translations: Record<Language, Record<string, string>> = {
 
         "table.tutor": "Tutor:in",
         "table.multiplier": "Faktor",
+        "table.multiplierHint": "Gewichtung der Auslastung, Dezimalzahlen erlaubt (z. B. 1,5)",
         "table.before": "vorher",
         "table.after": "nachher",
         "table.offered": "angeb. Slots",
@@ -170,6 +171,7 @@ const translations: Record<Language, Record<string, string>> = {
 
         "table.tutor": "Tutor",
         "table.multiplier": "Factor",
+        "table.multiplierHint": "Weight of the workload, decimal numbers allowed (e.g. 1.5)",
         "table.before": "before",
         "table.after": "after",
         "table.offered": "offered",

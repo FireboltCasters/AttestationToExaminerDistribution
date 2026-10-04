@@ -139,6 +139,66 @@ export default class JSONToGraph {
         return plan?.tutorSlotConditions?.[tutor]?.[day]?.[time];
     }
 
+    static getGreatestCommonDivisor(a: number, b: number): number {
+        a = Math.abs(a);
+        b = Math.abs(b);
+        while(b !== 0) {
+            [a, b] = [b, a % b];
+        }
+        return a;
+    }
+
+    /**
+     * Parses a multiplier like 1.5 or "1,5". Invalid values are 1, negative values are 0.
+     */
+    static parseTutorMultiplier(value: any): number {
+        let parsed = typeof value === "number" ? value : parseFloat(("" + value).replace(",", "."));
+        if(value === undefined || value === null || isNaN(parsed)) {
+            return 1;
+        }
+        return Math.max(0, parsed);
+    }
+
+    /**
+     * The tutor multipliers may be decimal numbers (e.g. 1.5), but the flow network needs integer capacities.
+     * So all multipliers are scaled by the least common multiple of their denominators and reduced by the
+     * greatest common divisor, e.g. {A: 1, B: 1.5} => {A: 2, B: 3}. The ratios between the tutors stay the same.
+     * This is only used for the internal calculation.
+     */
+    static getIntegerTutorMultipliers(parsedJSON: any): Record<string, number> {
+        let tutors = Object.keys(parsedJSON?.tutors || {});
+        for(const tutor of Object.keys(parsedJSON?.tutorMultipliers || {})) {
+            if(!tutors.includes(tutor)) {
+                tutors.push(tutor);
+            }
+        }
+
+        let maxDecimals = 4;
+        let fractions: Record<string, {numerator: number, denominator: number}> = {};
+        let commonDenominator = 1;
+        for(const tutor of tutors) {
+            let multiplier = JSONToGraph.parseTutorMultiplier(parsedJSON?.tutorMultipliers?.[tutor]);
+            let denominator = Math.pow(10, maxDecimals);
+            let numerator = Math.round(multiplier * denominator);
+            let divisor = JSONToGraph.getGreatestCommonDivisor(numerator, denominator) || 1;
+            fractions[tutor] = {numerator: numerator / divisor, denominator: denominator / divisor};
+            commonDenominator = commonDenominator * fractions[tutor].denominator / JSONToGraph.getGreatestCommonDivisor(commonDenominator, fractions[tutor].denominator);
+        }
+
+        let result: Record<string, number> = {};
+        let commonDivisor = 0;
+        for(const tutor of tutors) {
+            result[tutor] = fractions[tutor].numerator * (commonDenominator / fractions[tutor].denominator);
+            commonDivisor = JSONToGraph.getGreatestCommonDivisor(commonDivisor, result[tutor]);
+        }
+        if(commonDivisor > 1) {
+            for(const tutor of tutors) {
+                result[tutor] = result[tutor] / commonDivisor;
+            }
+        }
+        return result;
+    }
+
     static getSlotId(slot: any): string {
         return JSONToGraph.getSlotIdFromFields(slot.time, slot.day, slot.tutor);
     }
@@ -316,18 +376,15 @@ export default class JSONToGraph {
         }
 
         // Add edges from tutors to sink
+        let integerTutorMultipliers = JSONToGraph.getIntegerTutorMultipliers(parsedJSON);
         for(const tutor of tutors) {
             //@ts-ignore
             let tutorVertice = result.nameToVertice[tutor];
             //@ts-ignore
             result.graph[tutorVertice] = result.graph[tutorVertice] || {};
 
-            let multiplier = 1;
-            let individualMultiplier = parsedJSON?.tutorMultipliers?.[tutor];
-            if(individualMultiplier !== undefined) {
-                multiplier = individualMultiplier;
-            }
-            let individualTutorCapacity = Math.floor(tutorCapacity * multiplier);
+            let multiplier = integerTutorMultipliers[tutor] ?? 1;
+            let individualTutorCapacity = tutorCapacity * multiplier;
 
             if(!!dictTutorToIndividualDiff){
                 if(dictTutorToIndividualDiff[tutor] !== undefined){
