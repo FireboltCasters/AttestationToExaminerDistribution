@@ -29,9 +29,111 @@ export default class ParseStudIPCSVToJSON {
         return tutors
     }
 
+    /**
+     * Splits the raw "Ort" field into the tutor name and an optional condition in brackets.
+     * e.g. "Nils Baumgartner (Online unter Vorbehalt, sonst in Präsenz)"
+     *   => {tutor: "Nils Baumgartner", condition: "Online unter Vorbehalt, sonst in Präsenz"}
+     */
+    static parseTutorAndCondition(rawOrt: any): {tutor: string, condition: string | undefined} {
+        let raw = (rawOrt === undefined || rawOrt === null) ? "" : (""+rawOrt).trim();
+        let match = raw.match(/^([^(]*?)\s*\(([\s\S]*)\)\s*$/);
+        if(match && match[1].trim().length > 0) {
+            let condition = match[2].trim();
+            return {tutor: match[1].trim(), condition: condition.length > 0 ? condition : undefined};
+        }
+        return {tutor: raw, condition: undefined};
+    }
+
     static getTutorFromNode(node: any): string {
-        let ort = node["Ort"]
-        return ort
+        return ParseStudIPCSVToJSON.parseTutorAndCondition(node["Ort"]).tutor
+    }
+
+    static getConditionFromNode(node: any): string | undefined {
+        return ParseStudIPCSVToJSON.parseTutorAndCondition(node["Ort"]).condition
+    }
+
+    /**
+     * Normalizes a time like "8:00" to "08:00"
+     */
+    static normalizeTime(time: any): string {
+        let minutes = JSONToGraph.timeToMinutes(time);
+        if(isNaN(minutes)) {
+            return time;
+        }
+        return JSONToGraph.minutesToTime(minutes);
+    }
+
+    /**
+     * Detects the smallest slot duration (e.g. 20 or 30 minutes) by using "Ende" - "Beginn" of each row.
+     * Falls back to the smallest distance between two start times of a tutor at a day.
+     */
+    static detectSlotDurationMinutes(nodes: any): number {
+        let smallest: number | undefined = undefined;
+        for(const node of nodes) {
+            let duration = JSONToGraph.timeToMinutes(node["Ende"]) - JSONToGraph.timeToMinutes(node["Beginn"]);
+            if(!isNaN(duration) && duration > 0 && (smallest === undefined || duration < smallest)) {
+                smallest = duration;
+            }
+        }
+        if(smallest !== undefined) {
+            return smallest;
+        }
+
+        let startsPerTutorAndDate: Record<string, number[]> = {};
+        for(const node of nodes) {
+            let key = ParseStudIPCSVToJSON.getTutorFromNode(node) + "-" + node["Datum"];
+            let start = JSONToGraph.timeToMinutes(node["Beginn"]);
+            if(!isNaN(start)) {
+                startsPerTutorAndDate[key] = startsPerTutorAndDate[key] || [];
+                startsPerTutorAndDate[key].push(start);
+            }
+        }
+        for(const key of Object.keys(startsPerTutorAndDate)) {
+            let starts = startsPerTutorAndDate[key].sort((a, b) => a - b);
+            for(let i = 1; i < starts.length; i++) {
+                let diff = starts[i] - starts[i-1];
+                if(diff > 0 && (smallest === undefined || diff < smallest)) {
+                    smallest = diff;
+                }
+            }
+        }
+        return smallest || JSONToGraph.DEFAULT_SLOT_DURATION_MINUTES;
+    }
+
+    /**
+     * Collects for every tutor and slot the condition (text in brackets) the tutor added in Stud.IP.
+     * The condition belongs to the tutor at this slot, not to the group.
+     */
+    static getAllTutorSlotConditions(nodes: any): any {
+        let conditions: any = {}
+        for(const node of nodes) {
+            let condition = ParseStudIPCSVToJSON.getConditionFromNode(node)
+            if(condition !== undefined) {
+                let slot = ParseStudIPCSVToJSON.getSlotFromNode(node)
+                conditions[slot.tutor] = conditions[slot.tutor] || {}
+                conditions[slot.tutor][slot.day] = conditions[slot.tutor][slot.day] || {}
+                conditions[slot.tutor][slot.day][slot.time] = condition
+            }
+        }
+        return conditions
+    }
+
+    /**
+     * Keeps the raw information of every row of the CSV, enriched with the parsed tutor and condition
+     */
+    static getRawSlots(nodes: any): any[] {
+        let rawSlots = []
+        for(const node of nodes) {
+            let slot = ParseStudIPCSVToJSON.getSlotFromNode(node)
+            rawSlots.push({
+                tutor: slot.tutor,
+                condition: ParseStudIPCSVToJSON.getConditionFromNode(node),
+                day: slot.day,
+                time: slot.time,
+                raw: node,
+            })
+        }
+        return rawSlots
     }
 
     static getSlotFromNode(node: any): any {
@@ -50,7 +152,7 @@ export default class ParseStudIPCSVToJSON {
         let slot = {
             tutor: tutor,
             day: day,
-            time: node["Beginn"],
+            time: ParseStudIPCSVToJSON.normalizeTime(node["Beginn"]),
         }
         return slot;
     }
@@ -135,8 +237,7 @@ export default class ParseStudIPCSVToJSON {
 
     static getGroupMembersFromNode(node: any): any {
         let person = node["Person"]
-        console.log("person: "+JSON.stringify(person));
-        if(person == "") {
+        if(person === undefined || person === null || person == "") {
             return undefined
         }
         if(person.length>0){
@@ -160,6 +261,9 @@ export default class ParseStudIPCSVToJSON {
             groups: {},
             tutors: {},
             tutorMultipliers: {},
+            slotDurationMinutes: ParseStudIPCSVToJSON.detectSlotDurationMinutes(output),
+            tutorSlotConditions: ParseStudIPCSVToJSON.getAllTutorSlotConditions(output),
+            rawSlots: ParseStudIPCSVToJSON.getRawSlots(output),
         };
 
         let tutorDicts = ParseStudIPCSVToJSON.getAllTutorsDict(output)

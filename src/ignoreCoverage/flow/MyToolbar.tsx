@@ -494,6 +494,7 @@ export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selec
         return(
             <>
                 <div>{"Amount Groups: "+amountOfGroups}</div>
+                <div>{"Slot duration: "+JSONToGraph.getSlotDurationMinutes(oldPlan)+" min"}</div>
                 <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
                     <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor (multiplier)"}</div>
                     <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>

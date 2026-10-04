@@ -84,7 +84,7 @@ export default class HtmlTableStudIp {
         let tutors = usePlan.tutors || {};
 
         let workingWeekdays = JSONToGraph.getWorkingWeekdays();
-        let timeslots = JSONToGraph.getTimeslots();
+        let timeslots = JSONToGraph.getTimeslots(usePlan);
 
         let headerTexts = ["Uhrzeit"];
         for (let weekday of workingWeekdays) {

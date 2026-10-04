@@ -94,11 +94,19 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
             }}>
                 <div>{"Group: "+groupName}</div>
                 <div style={{height: 10}}></div>
-                <div>{"Tutor old: "+oldSelectedSlot?.tutor}</div>
-                <div>{"Tutor new: "+newSelectedSlot?.tutor}</div>
+                <div>{"Tutor old: "+oldSelectedSlot?.tutor}{renderTutorSlotCondition(oldSelectedSlot)}</div>
+                <div>{"Tutor new: "+newSelectedSlot?.tutor}{renderTutorSlotCondition(newSelectedSlot)}</div>
                 {singleDiv}
             </div>
         )
+    }
+
+    function renderTutorSlotCondition(slot: any){
+        let condition = JSONToGraph.getTutorSlotCondition(oldPlan, slot?.tutor, slot?.day, slot?.time);
+        if(!condition){
+            return null;
+        }
+        return <span style={{fontStyle: "italic"}}>{" ("+condition+")"}</span>
     }
 
     function isSelectable(slotToSave: any, isSelectedAtFirst: boolean, isSelectedAtSecond: boolean){
@@ -208,7 +216,7 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
             <div key={tutor} style={{border: '2px solid '+backgroundColor, marginBottom: 5, cursor: cursor}} onClick={() => {
                 handleSelect(slotToSave, isSelectedAtFirst, isSelectedAtSecond);
             }}>
-                <div>{"Tutor: "+tutor}</div>
+                <div>{"Tutor: "+tutor}{renderTutorSlotCondition(slotToSave)}</div>
             </div>
         )
     }
@@ -296,7 +304,8 @@ export const AttestationToExaminerDistribution : FunctionComponent = (props) => 
     }
 
     function renderTimeslots(){
-        let timeslots = JSONToGraph.getTimeslots();
+        // @ts-ignore
+        let timeslots = JSONToGraph.getTimeslots(newPlan || oldPlan);
         let timeslotFlex = 1;
         let renderedTimeslots = [];
 

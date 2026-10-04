@@ -36,21 +36,107 @@ export default class JSONToGraph {
         return weekdays;
     }
 
-    static getTimeslots(){
-        let startHour = 8;
-        let endHour = 20;
-        let minuteStep = 20;
-        let minutesPerHour = 60;
+    static DEFAULT_SLOT_DURATION_MINUTES = 20;
 
-        let timeslots = [];
-        for(let i = startHour; i < endHour; i++){
-            for(let j = 0; j < minutesPerHour; j+=minuteStep){
-                let hour = i < 10 ? "0" + i : i;
-                let minute = j < 10 ? "0" + j : j;
-                timeslots.push(hour + ":" + minute);
+    static timeToMinutes(time: string): number {
+        if(!time) {
+            return NaN;
+        }
+        let parts = (""+time).trim().split(":");
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+
+    static minutesToTime(minutes: number): string {
+        let hour = Math.floor(minutes / 60);
+        let minute = minutes % 60;
+        return (hour < 10 ? "0" + hour : "" + hour) + ":" + (minute < 10 ? "0" + minute : "" + minute);
+    }
+
+    /**
+     * Returns all start times used in the plan (tutor slots, possible and selected slots of groups)
+     */
+    static getUsedTimesFromPlan(plan: any): string[] {
+        let times: Record<string, boolean> = {};
+        let tutorsDict = plan?.tutors || {};
+        for(const tutor of Object.keys(tutorsDict)) {
+            let days = tutorsDict[tutor] || {};
+            for(const day of Object.keys(days)) {
+                for(const time of Object.keys(days[day] || {})) {
+                    times[time] = true;
+                }
             }
         }
-        return timeslots;
+        let groupsDict = plan?.groups || {};
+        for(const groupName of Object.keys(groupsDict)) {
+            let group = groupsDict[groupName];
+            if(group?.selectedSlot?.time) {
+                times[group.selectedSlot.time] = true;
+            }
+            let possibleSlots = group?.possibleSlots || {};
+            for(const day of Object.keys(possibleSlots)) {
+                for(const time of Object.keys(possibleSlots[day] || {})) {
+                    times[time] = true;
+                }
+            }
+        }
+        return Object.keys(times).filter((time) => !isNaN(JSONToGraph.timeToMinutes(time)));
+    }
+
+    /**
+     * Returns the smallest slot duration of the plan in minutes.
+     * Uses plan.slotDurationMinutes (set by the Stud.IP CSV parser) if available,
+     * otherwise it is inferred from the smallest distance between two start times.
+     */
+    static getSlotDurationMinutes(plan?: any): number {
+        let fromPlan = plan?.slotDurationMinutes;
+        if(typeof fromPlan === "number" && fromPlan > 0) {
+            return fromPlan;
+        }
+
+        let minutes = JSONToGraph.getUsedTimesFromPlan(plan).map(JSONToGraph.timeToMinutes).sort((a, b) => a - b);
+        let smallestDiff = undefined;
+        for(let i = 1; i < minutes.length; i++) {
+            let diff = minutes[i] - minutes[i-1];
+            if(diff > 0 && (smallestDiff === undefined || diff < smallestDiff)) {
+                smallestDiff = diff;
+            }
+        }
+        return smallestDiff || JSONToGraph.DEFAULT_SLOT_DURATION_MINUTES;
+    }
+
+    /**
+     * Returns the timeslots (start times) to display. The step is the smallest slot duration of the plan.
+     * All start times which are used in the plan are always included, even if they are not on the grid.
+     */
+    static getTimeslots(plan?: any){
+        let startHour = 8;
+        let endHour = 20;
+        let minutesPerHour = 60;
+        let minuteStep = JSONToGraph.getSlotDurationMinutes(plan);
+
+        let usedMinutes = JSONToGraph.getUsedTimesFromPlan(plan).map(JSONToGraph.timeToMinutes);
+        let startMinutes = Math.floor(Math.min(startHour * minutesPerHour, ...usedMinutes) / minutesPerHour) * minutesPerHour; // grid starts at a full hour
+        let endMinutes = Math.max(endHour * minutesPerHour, ...usedMinutes.map((m) => m + 1));
+
+        let timeslotMinutes: Record<number, boolean> = {};
+        for(let m = startMinutes; m < endMinutes; m += minuteStep){
+            timeslotMinutes[m] = true;
+        }
+        for(const m of usedMinutes) {
+            timeslotMinutes[m] = true;
+        }
+
+        return Object.keys(timeslotMinutes)
+            .map((m) => parseInt(m))
+            .sort((a, b) => a - b)
+            .map(JSONToGraph.minutesToTime);
+    }
+
+    /**
+     * Returns the condition (e.g. "Präsenz") a tutor added for a specific slot, if any
+     */
+    static getTutorSlotCondition(plan: any, tutor: string, day: string, time: string): string | undefined {
+        return plan?.tutorSlotConditions?.[tutor]?.[day]?.[time];
     }
 
     static getSlotId(slot: any): string {

@@ -311,7 +311,7 @@ export default class GraphHelper {
         console.log("removeUnnecessarySwitchesInSameSlots")
         let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
 
-        let timeslots = JSONToGraph.getTimeslots();
+        let timeslots = JSONToGraph.getTimeslots(oldPlan);
         for(let i=0; i<timeslots.length; i++) {
             let time = timeslots[i];
             let workingWeekdays = JSONToGraph.getWorkingWeekdays();
@@ -461,7 +461,7 @@ export default class GraphHelper {
         console.log("mergeSingleGroups")
         let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
 
-        let timeslots = JSONToGraph.getTimeslots();
+        let timeslots = JSONToGraph.getTimeslots(unoptimizedJSON);
         for(let i=0; i<timeslots.length; i++) {
             let time = timeslots[i];
             let workingWeekdays = JSONToGraph.getWorkingWeekdays();
