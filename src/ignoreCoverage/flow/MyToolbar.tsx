@@ -1,617 +1,423 @@
-import React, {ReactNode, useState} from 'react';
-import {FunctionComponent} from "react";
-import {Toolbar} from "primereact/toolbar";
-import { FileUpload } from 'primereact/fileupload';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { Dialog } from 'primereact/dialog';
+import React, {FunctionComponent, ReactNode, useState} from 'react';
+import {FileUpload} from 'primereact/fileupload';
+import {InputTextarea} from 'primereact/inputtextarea';
+import {Dialog} from 'primereact/dialog';
 import {Button} from "primereact/button";
+import {Dropdown} from "primereact/dropdown";
 import DownloadHelper from "../helper/DownloadHelper";
 import ParseStudIPCSVToJSON from "../../api/src/ignoreCoverage/ParseStudIPCSVToJSON";
 import GraphHelper from "../../api/src/ignoreCoverage/GraphHelper";
-
-import jsgraphs from "js-graph-algorithms";
 import {JSONToGraph} from "../../api/src";
 import HtmlTableStudIp from "../helper/HtmlTableStudIp";
+import {Language, LANGUAGE_OPTIONS, useI18n} from "../i18n/I18n";
+import {getTutorColor} from "./PlanTypes";
 
-export interface AppState{
-    handleSwitchSelection: any,
-    selectedSlotFirst: any,
-    selectedSlotSecond: any,
-    newPlan: any,
-    setNewPlan: any,
-    setOldPlan: any;
+export interface AppState {
     oldPlan: any;
-    setReloadNumber?: any,
-    reloadNumber?: any
+    newPlan: any;
+    commitPlans: (oldPlan: any, newPlan: any, undoable: boolean) => void;
+    switchMode: boolean;
+    setSwitchMode: (active: boolean) => void;
+    canUndo: boolean;
+    undo: () => void;
+    hideEmptyRows: boolean;
+    setHideEmptyRows: (hide: boolean) => void;
+    reloadNumber: number;
+    setReloadNumber: (reloadNumber: number) => void;
+    showToast: (severity: "success" | "info" | "warn" | "error", detail: string) => void;
 }
-export const MyToolbar: FunctionComponent<AppState> = ({selectedSlotFirst, selectedSlotSecond, handleSwitchSelection, setOldPlan, oldPlan, setReloadNumber, newPlan, setNewPlan, reloadNumber, ...props}) => {
 
-    const [displayBasic, setDisplayBasic] = useState(false);
+export const MyToolbar: FunctionComponent<AppState> = (props) => {
+    const {oldPlan, newPlan, commitPlans, reloadNumber, setReloadNumber} = props;
+    const {t, language, setLanguage} = useI18n();
+
+    const [displayJsonTextImport, setDisplayJsonTextImport] = useState(false);
+    const [jsonTextImportValue, setJsonTextImportValue] = useState("");
     const [displayStudipTableImport, setDisplayStudipTableImport] = useState(false);
-    const [textImportValue, setTextImportValue] = useState("");
-    const [displayStudipTableImportText, setDisplayStudipTableImportText] = useState("");
+    const [studipTableImportValue, setStudipTableImportValue] = useState("");
+    const [, setMultiplierChangeCounter] = useState(0);
 
-    function parseStudipCSVToJSON(event: any){
-        console.log("parseStudipCSVToJSON");
-        console.log(event);
-        let files = event.files;
-        let file = files[0];
+    const usePlan = newPlan || oldPlan;
+
+    function importPlan(plan: any) {
+        commitPlans(plan, null, false);
+        setReloadNumber(reloadNumber + 1);
+    }
+
+    function readFile(event: any, handleContent: (content: string) => Promise<void> | void) {
+        let file = event.files?.[0];
+        if(!file) {
+            return;
+        }
         const reader = new FileReader();
-        reader.addEventListener('load', async (event) => {
-            console.log("File loaded");
-            let content: string = "" + event?.target?.result;
-            console.log(content);
+        reader.addEventListener('load', async (loadEvent) => {
+            try {
+                await handleContent("" + loadEvent?.target?.result);
+            } catch (err) {
+                console.error(err);
+                props.showToast("error", t("import.error"));
+                setReloadNumber(reloadNumber + 1);
+            }
+        });
+        reader.readAsText(file);
+    }
+
+    function handleImportStudipCsv(event: any) {
+        readFile(event, async (content) => {
             let json = await ParseStudIPCSVToJSON.parseStudIPCSVToJSON(content);
-            DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json")
-            setOldPlan(json);
-            setNewPlan(null);
-            setReloadNumber(reloadNumber + 1);
+            DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "parsedStudip.json");
+            importPlan(json);
         });
-        reader.readAsText(file);
     }
 
-    function handleImportJson(event: any){
-        let files = event.files;
-        let file = files[0];
-        const reader = new FileReader();
-        reader.addEventListener('load', async (event) => {
-            let content: string = ""+event?.target?.result;
-            console.log(content);
-            let json = JSON.parse(content);
-            setOldPlan(json);
-            setNewPlan(null);
-            //setReloadNumber(reloadNumber + 1);
-        });
-        reader.readAsText(file);
+    function handleImportJson(event: any) {
+        readFile(event, (content) => importPlan(JSON.parse(content)));
     }
 
-    function handleImportHtmlTable(event: any){
-        let files = event.files;
-        let file = files[0];
-        const reader = new FileReader();
-        reader.addEventListener('load', async (event) => {
-            let content: string = ""+event?.target?.result;
-            console.log(content);
-            let json = HtmlTableStudIp.htmlToJson(content);
-            setOldPlan(json);
-            setNewPlan(null);
-            //setReloadNumber(reloadNumber + 1);
-        });
-        reader.readAsText(file);
+    function handleImportHtmlTable(event: any) {
+        readFile(event, (content) => importPlan(HtmlTableStudIp.htmlToJson(content)));
     }
 
-    async function sleep(milliseconds: number) {
-        return new Promise(resolve => setTimeout(resolve, milliseconds));
+    function handleExport() {
+        let json = JSON.parse(JSON.stringify(usePlan));
+        for(const groupName of Object.keys(json.groups || {})) {
+            delete json.groups[groupName].selectedSlot?.["id"];
+        }
+        DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json");
     }
 
-    async function handleExport(){
-        let usePlan = !!newPlan ? newPlan : oldPlan;
-
-       let json = JSON.parse(JSON.stringify(usePlan));
-       let groupsNames = Object.keys(json.groups);
-       for(let i = 0; i < groupsNames.length; i++){
-           let groupName = groupsNames[i];
-           let group = json.groups[groupName];
-           let selectedSlot = group.selectedSlot;
-           delete selectedSlot["id"];
-       }
-
-       DownloadHelper.downloadTextAsFiletile(JSON.stringify(json, null, 2), "export.json")
-    }
-
-    function renderParseStudipFileUpload(){
-        const parseOptions = {label: 'Parse Stud.IP CSV', icon: 'pi pi-upload', className: 'p-button-warning'};
-        return(
-            <FileUpload key={reloadNumber+JSON.stringify(oldPlan)} auto chooseOptions={parseOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {parseStudipCSVToJSON(event)}} style={{margin: 5, display: "inline-block"}} />
-        )
-    }
-
-    function renderImportStudipTableButton(){
-        return(
-            <Button label="Import StudIP Table" icon="pi pi-upload" style={{margin: 5, display: "inline-block"}} onClick={() => {console.log("setDisplayBasic"); setDisplayStudipTableImport(true)}} />
-        )
-    }
-
-    async function mergeSingleGroups(){
-        let oldPlanWithMergedGroups = GraphHelper.mergeSingleGroups(oldPlan);
-        setOldPlan(oldPlanWithMergedGroups);
-    }
-
-    async function handleOptimize(){
-        let optimizedPlan = GraphHelper.getOptimizedDistribution(oldPlan);
-        setNewPlan(optimizedPlan);
-    }
-
-    function renderImportTextButton(){
+    function renderUpload(label: string, icon: string, accept: string, handler: (event: any) => void) {
         return (
-            <Button label="Import Text" icon="pi pi-upload" style={{margin: 5, display: "inline-block"}} onClick={() => {console.log("setDisplayBasic"); setDisplayBasic(true)}} />
-            )
+            <FileUpload key={label + reloadNumber} auto mode="basic" accept={accept} name="file" url="./upload" customUpload
+                        chooseOptions={{label, icon, className: 'p-button-outlined'}}
+                        uploadHandler={handler}/>
+        );
     }
 
-    function renderOptimizeButton(){
-        let disabled = !oldPlan;
-        let label = !!oldPlan ? "Optimize" : "No plan to optimize";
+    // ---------- Sections ----------
 
-        return(
-            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleOptimize()}} />
-        )
+    function renderLanguageSection() {
+        return (
+            <div className="atd-panel atd-panel-row">
+                <strong><i className="pi pi-globe" style={{marginRight: 6}}/>{t("language")}</strong>
+                <Dropdown value={language} options={LANGUAGE_OPTIONS} onChange={(e) => setLanguage(e.value as Language)} style={{minWidth: 140}}/>
+            </div>
+        );
     }
 
-    function renderMergeSingleGroupsButton(){
-        let disabled = !oldPlan;
-        let label = !!oldPlan ? "Merge Single Groups" : "No plan to optimize";
-
-        return(
-            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-information" style={{margin: 5}} onClick={() => {mergeSingleGroups()}} />
-        )
+    function renderImportSection() {
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.import")}</h3>
+                <div className="atd-buttons">
+                    <FileUpload key={"csv" + reloadNumber} auto mode="basic" accept=".csv,text/csv" name="file" url="./upload" customUpload
+                                chooseOptions={{label: t("import.studipCsv"), icon: 'pi pi-upload', className: 'p-button-warning'}}
+                                uploadHandler={handleImportStudipCsv}/>
+                    {renderUpload(t("import.json"), "pi pi-file", ".json,application/json", handleImportJson)}
+                    {renderUpload(t("import.htmlFile"), "pi pi-table", ".html,.htm,.txt,text/html,text/plain", handleImportHtmlTable)}
+                    <Button label={t("import.jsonText")} icon="pi pi-align-left" className="p-button-outlined" onClick={() => setDisplayJsonTextImport(true)}/>
+                    <Button label={t("import.htmlText")} icon="pi pi-align-left" className="p-button-outlined" onClick={() => setDisplayStudipTableImport(true)}/>
+                </div>
+            </div>
+        );
     }
 
-    function renderDownloadButton(){
-        let usePlan = newPlan ? newPlan : oldPlan;
-        let label = !!usePlan ? "Download" : "No plan to download";
-        let disabled = !usePlan;
-
-        return(
-            <Button disabled={disabled} label={label} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {handleExport()}} />
-        )
+    function renderEditSection() {
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.edit")}</h3>
+                <div className="atd-buttons">
+                    <Button label={t("edit.mergeSingleGroups")} icon="pi pi-users" className="p-button-outlined" disabled={!oldPlan}
+                            onClick={() => commitPlans(GraphHelper.mergeSingleGroups(oldPlan), null, true)}/>
+                    <Button label={t("edit.optimize")} icon="pi pi-bolt" disabled={!oldPlan}
+                            onClick={() => commitPlans(oldPlan, GraphHelper.getOptimizedDistribution(oldPlan), true)}/>
+                    <Button label={props.switchMode ? t("switch.cancel") : t("edit.switch")} icon="pi pi-arrows-h"
+                            className={props.switchMode ? "p-button-help" : "p-button-outlined p-button-help"}
+                            onClick={() => props.setSwitchMode(!props.switchMode)}/>
+                    <Button label={t("edit.undo")} icon="pi pi-undo" className="p-button-outlined p-button-secondary" disabled={!props.canUndo} onClick={props.undo}/>
+                    <Button label={t("edit.resetChanges")} icon="pi pi-replay" className="p-button-outlined p-button-danger" disabled={!newPlan}
+                            onClick={() => commitPlans(oldPlan, null, true)}/>
+                </div>
+                <label className="atd-checkbox">
+                    <input type="checkbox" checked={props.hideEmptyRows} onChange={(e) => props.setHideEmptyRows(e.target.checked)}/>
+                    {t("edit.hideEmptyRows")}
+                </label>
+            </div>
+        );
     }
 
-    function getAmountOfferedSlotsForTutor(tutor_key: string, oldPlan: any){
-        // let groupsForTutorInNewPlan = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
-        // @ts-ignore
-        // let tutorAuslastung = Object.keys(groupsForTutorInNewPlan[tutor_key] || {})?.length;
+    function renderExportSection() {
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.export")}</h3>
+                <div className="atd-buttons">
+                    <Button label={t("export.json")} icon="pi pi-download" disabled={!usePlan} onClick={handleExport}/>
+                    <Button label={t("export.tutorGroups")} icon="pi pi-download" className="p-button-outlined" disabled={!usePlan} onClick={() => {
+                        let groupsForTutor = ParseStudIPCSVToJSON.getGroupsForTutors(usePlan);
+                        DownloadHelper.downloadTextAsFiletile(JSON.stringify(groupsForTutor, null, 2), "tutorsGroups.json");
+                    }}/>
+                    <Button label={t("export.studipTable")} icon="pi pi-download" className="p-button-outlined" disabled={!usePlan} onClick={() => {
+                        let htmlTable = HtmlTableStudIp.getPlanAsStudipTable(newPlan, oldPlan);
+                        DownloadHelper.downloadTextAsFiletile(htmlTable, "studipHTMLTable.txt");
+                    }}/>
+                </div>
+            </div>
+        );
+    }
 
-        let tutorsDict = oldPlan?.tutors || {};
-        let tutorsWeekdaysDict = tutorsDict[tutor_key] || {};
+    function getAmountOfferedSlotsForTutor(tutor: string): number {
+        let tutorsWeekdaysDict = oldPlan?.tutors?.[tutor] || {};
+        let amount = 0;
+        for(const weekday of Object.keys(tutorsWeekdaysDict)) {
+            amount += Object.keys(tutorsWeekdaysDict[weekday] || {}).length;
+        }
+        return amount;
+    }
 
-        let weekdays = Object.keys(tutorsWeekdaysDict) || [];
-        let amountFreeSlots = 0;
-        for(let weekday of weekdays){
-            let slots = tutorsWeekdaysDict[weekday] || {};
-            let amountSlotsForWeekday = Object.keys(slots).length;
-            amountFreeSlots += amountSlotsForWeekday;
+    function renderTutorSection() {
+        let tutorNames: string[] = Object.keys(oldPlan?.tutors || {});
+        let groupsDict = usePlan?.groups || {};
+        for(const groupName of Object.keys(groupsDict)) {
+            let tutor = groupsDict[groupName]?.selectedSlot?.tutor;
+            if(tutor && !tutorNames.includes(tutor)) {
+                tutorNames.push(tutor);
+            }
         }
 
-        let totalSlots = amountFreeSlots;
-        return totalSlots;
+        let groupsForTutorInOldPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
+        let groupsForTutorInNewPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan) || {};
+
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.tutors")}</h3>
+                <div className="atd-muted" style={{marginBottom: 8}}>
+                    {t("table.amountGroups", {count: Object.keys(oldPlan?.groups || {}).length})}
+                    {" · "}
+                    {t("table.slotDuration", {minutes: JSONToGraph.getSlotDurationMinutes(oldPlan)})}
+                </div>
+                <table className="atd-table">
+                    <thead>
+                    <tr>
+                        <th>{t("table.tutor")}</th>
+                        <th className="atd-num">{t("table.multiplier")}</th>
+                        <th className="atd-num">{t("table.before")}</th>
+                        <th className="atd-num">{t("table.after")}</th>
+                        <th className="atd-num">{t("table.offered")}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {tutorNames.map((tutor) => {
+                        let known = !!oldPlan?.tutors?.[tutor];
+                        let multiplier = oldPlan?.tutorMultipliers?.[tutor] ?? 1;
+                        let amountNew = newPlan ? (groupsForTutorInNewPlan[tutor] || []).length : undefined;
+                        return (
+                            <tr key={tutor}>
+                                <td>
+                                    <span className="atd-tutor-dot" style={{["--atd-tutor-color" as any]: getTutorColor(tutor, oldPlan), marginRight: 6}}/>
+                                    {known ? tutor : t("slot.unknownTutor", {tutor})}
+                                </td>
+                                <td className="atd-num">
+                                    <input type="number" value={multiplier} onChange={(e) => {
+                                        const value = parseInt(e.target.value, 10);
+                                        if(!isNaN(value) && oldPlan) {
+                                            oldPlan.tutorMultipliers = oldPlan.tutorMultipliers || {};
+                                            oldPlan.tutorMultipliers[tutor] = value;
+                                            setMultiplierChangeCounter((counter) => counter + 1);
+                                        }
+                                    }}/>
+                                </td>
+                                <td className="atd-num">{(groupsForTutorInOldPlan[tutor] || []).length}</td>
+                                <td className="atd-num">{amountNew === undefined ? "–" : amountNew}</td>
+                                <td className="atd-num">{getAmountOfferedSlotsForTutor(tutor)}</td>
+                            </tr>
+                        );
+                    })}
+                    </tbody>
+                </table>
+            </div>
+        );
     }
 
-    function useRenderTutorAuslastung() {
-        let tutorsDict = oldPlan?.tutors || {};
-        let tutorNamesDict: Record<string, string> = {};
-        let tutorMultipliersState = { ...oldPlan?.tutorMultipliers }; // Copy of the current multipliers
-        const [tutorMultipliers, setTutorMultipliers] = useState(tutorMultipliersState);
-
-        let tutorNames = Object.keys(tutorsDict);
-        for (let tutorName of tutorNames) {
-            tutorNamesDict[tutorName] = tutorName;
+    function formatSlot(slot: any): string {
+        if(!slot) {
+            return "–";
         }
+        return t("weekday." + slot.day) + " " + slot.time;
+    }
 
-        let groupsDict = oldPlan?.groups || {};
-        let groups = Object.keys(groupsDict);
-        for (let groupKey of groups) {
-            let group = groupsDict[groupKey];
-            let selectedSlot = group?.selectedSlot;
-            let tutor = selectedSlot?.tutor;
-            if (tutor) {
-                if (!tutorNamesDict[tutor]) {
-                    tutorNamesDict[tutor] = "Error: Tutor not known: " + tutor;
+    function renderChangesSection() {
+        let changes: {groupName: string, oldSlot: any, newSlot: any}[] = [];
+        if(oldPlan && newPlan) {
+            for(const groupName of Object.keys(newPlan.groups || {})) {
+                let oldSlot = oldPlan.groups?.[groupName]?.selectedSlot;
+                let newSlot = newPlan.groups[groupName]?.selectedSlot;
+                if(oldSlot?.tutor !== newSlot?.tutor || oldSlot?.day !== newSlot?.day || oldSlot?.time !== newSlot?.time) {
+                    changes.push({groupName, oldSlot, newSlot});
                 }
             }
         }
 
-        let tutors = Object.keys(tutorNamesDict);
-        let renderedTutors = [];
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.changes", {count: changes.length})}</h3>
+                {changes.length === 0 ? <div className="atd-muted">{t("table.noChanges")}</div> : (
+                    <table className="atd-table">
+                        <thead>
+                        <tr>
+                            <th>{t("table.group")}</th>
+                            <th>{t("table.before")}</th>
+                            <th>{t("table.after")}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {changes.map((change) => (
+                            <tr key={change.groupName}>
+                                <td>{change.groupName}</td>
+                                <td>{change.oldSlot?.tutor || "–"}<br/><span className="atd-muted">{formatSlot(change.oldSlot)}</span></td>
+                                <td>{change.newSlot?.tutor || "–"}<br/><span className="atd-muted">{formatSlot(change.newSlot)}</span></td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        );
+    }
 
-        // Define the structure for groups for tutors
-        let groupsForTutorInOldPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(oldPlan) || {};
-        let groupsForTutorInNewPlan: any = ParseStudIPCSVToJSON.getGroupsForTutors(newPlan) || {};
+    function renderSingleGroupsSection() {
+        let groups = usePlan?.groups || {};
+        let singleGroupNames = Object.keys(groups).filter((groupName) => (groups[groupName]?.members || []).length === 1);
 
-        let index = 0;
-        for (let tutorKey of tutors) {
-            index++;
-            let backgroundColor = index % 2 === 0 ? "transparent" : "#ffffff";
-            let tutorName = tutorNamesDict[tutorKey];
-            let tutor = tutorKey;
+        return (
+            <div className="atd-panel">
+                <h3>{t("section.singleGroups", {count: singleGroupNames.length})}</h3>
+                {singleGroupNames.length === 0 ? <div className="atd-muted">{t("table.none")}</div> : (
+                    <table className="atd-table">
+                        <thead>
+                        <tr>
+                            <th>{t("table.dayTime")}</th>
+                            <th>{t("table.group")}</th>
+                            <th>{t("table.tutor")}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {singleGroupNames.map((groupName) => {
+                            let slot = groups[groupName]?.selectedSlot;
+                            return (
+                                <tr key={groupName}>
+                                    <td>{formatSlot(slot)}</td>
+                                    <td>{groupName}</td>
+                                    <td>{slot?.tutor}</td>
+                                </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        );
+    }
 
-            // Safely access the groups with explicit typing
-            let tutorAuslastungOld = Object.keys(groupsForTutorInOldPlan[tutor] || {}).length;
-            let tutorAuslastungNew = Object.keys(groupsForTutorInNewPlan[tutor] || {}).length;
-            let tutorMultiplier = tutorMultipliers[tutor] || 1;
-            let amountOfferedSlotsForTutor = getAmountOfferedSlotsForTutor(tutor, oldPlan);
+    function renderTimeplansSection() {
+        let tutorsDict = usePlan?.tutors || {};
+        let groupsDict = usePlan?.groups || {};
+        let weekdays = JSONToGraph.getWorkingWeekdays();
 
-            const handleMultiplierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-                const value = parseInt(e.target.value, 10);
-                if (!isNaN(value)) {
-                    setTutorMultipliers({
-                        ...tutorMultipliers,
-                        [tutor]: value,
-                    });
-                    // Optionally update the `oldPlan` directly if needed
-                    oldPlan.tutorMultipliers[tutor] = value;
-                }
-            };
+        let renderedTimeplans: ReactNode[] = Object.keys(tutorsDict).map((tutor) => {
+            let entries = Object.keys(groupsDict)
+                .filter((groupName) => groupsDict[groupName]?.selectedSlot?.tutor === tutor)
+                .map((groupName) => ({groupName, slot: groupsDict[groupName].selectedSlot}))
+                .sort((a, b) => (weekdays.indexOf(a.slot.day) - weekdays.indexOf(b.slot.day)) || ("" + a.slot.time).localeCompare("" + b.slot.time));
 
-            renderedTutors.push(
-                <div key={tutor} style={{ flexDirection: "row", display: "flex", backgroundColor: backgroundColor }}>
-                    <div style={{ flexGrow: 1, flex: 4 }}>
-                        {tutorName + ": "}
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        <input
-                            type="number"
-                            value={tutorMultiplier}
-                            onChange={handleMultiplierChange}
-                            style={{ width: "50px" }}
-                        />
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        {tutorAuslastungOld}
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        {" ==> "}
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        {tutorAuslastungNew}
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        {" | "}
-                    </div>
-                    <div style={{ flexGrow: 1, flex: 1 }}>
-                        {amountOfferedSlotsForTutor}
-                    </div>
+            return (
+                <div key={tutor}>
+                    <h4>
+                        <span className="atd-tutor-dot" style={{["--atd-tutor-color" as any]: getTutorColor(tutor, oldPlan)}}/>
+                        {tutor}
+                    </h4>
+                    {entries.length === 0 ? <div className="atd-muted">{t("table.none")}</div> : (
+                        <ul>
+                            {entries.map((entry) => {
+                                let condition = JSONToGraph.getTutorSlotCondition(usePlan, tutor, entry.slot.day, entry.slot.time);
+                                return (
+                                    <li key={entry.groupName}>
+                                        <strong>{formatSlot(entry.slot)}</strong>: {entry.groupName}
+                                        {condition ? <> <span className="atd-condition">{condition}</span></> : null}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
                 </div>
             );
-        }
-        return renderedTutors;
+        });
+
+        return (
+            <div className="atd-panel atd-timeplan">
+                <h3>{t("section.timeplans")}</h3>
+                {renderedTimeplans}
+            </div>
+        );
     }
 
-
-    function renderDownloadGroupsForTutor(){
-        return(
-            <Button label={"Download Tutors groups"} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {
-                let usePlan = newPlan || oldPlan;
-                let groupsForTutor = ParseStudIPCSVToJSON.getGroupsForTutors(usePlan);
-                DownloadHelper.downloadTextAsFiletile(JSON.stringify(groupsForTutor, null, 2), "tutorsGroups.json")
-            }} />
-        )
-    }
-
-    function renderDownloadAsStudipHTMLTableButton(){
-        return(
-            <Button label={"Download As StudIP HTML Table"} icon="pi pi-download" className="p-button-warning" style={{margin: 5}} onClick={() => {
-                let htmlTable = HtmlTableStudIp.getPlanAsStudipTable(newPlan, oldPlan);
-                DownloadHelper.downloadTextAsFiletile(htmlTable, "studipHTMLTable.txt")
-            }} />
-        )
-    }
-
-    function renderImportTextDialog(){
-        const footerBasic = (
+    function renderImportDialogs() {
+        const footerJson = (
             <div>
-                <Button label="Yes" icon="pi pi-check" onClick={() => {
-                    if(!!textImportValue && textImportValue.length > 0){
-                        try{
-                            let parsed = JSON.parse(textImportValue);
-                            setOldPlan(parsed);
-                            setDisplayBasic(false);
-                        } catch (err){
-                            console.error(err);
-                        }
+                <Button label={t("modal.cancel")} icon="pi pi-times" className="p-button-text" onClick={() => setDisplayJsonTextImport(false)}/>
+                <Button label={t("modal.ok")} icon="pi pi-check" onClick={() => {
+                    try {
+                        importPlan(JSON.parse(jsonTextImportValue));
+                        setDisplayJsonTextImport(false);
+                        setJsonTextImportValue("");
+                    } catch (err) {
+                        console.error(err);
+                        props.showToast("error", t("import.error"));
                     }
-                }} />
-                <Button label="No" icon="pi pi-times" onClick={() => {
-                    setDisplayBasic(false)
-                }} />
+                }}/>
             </div>
         );
 
         const footerStudip = (
             <div>
-                <Button label="Yes" icon="pi pi-check" onClick={() => {
-                    if(!!displayStudipTableImportText && displayStudipTableImportText.length > 0){
-                        try{
-                            let parsed = HtmlTableStudIp.htmlToJson(displayStudipTableImportText);
-                            setOldPlan(parsed);
-                            setDisplayStudipTableImport(false);
-                            setDisplayStudipTableImportText("");
-                        } catch (err){
-                            console.error(err);
-                        }
+                <Button label={t("modal.cancel")} icon="pi pi-times" className="p-button-text" onClick={() => setDisplayStudipTableImport(false)}/>
+                <Button label={t("modal.ok")} icon="pi pi-check" onClick={() => {
+                    try {
+                        importPlan(HtmlTableStudIp.htmlToJson(studipTableImportValue));
+                        setDisplayStudipTableImport(false);
+                        setStudipTableImportValue("");
+                    } catch (err) {
+                        console.error(err);
+                        props.showToast("error", t("import.error"));
                     }
-                }} />
-                <Button label="No" icon="pi pi-times" onClick={() => {
-                    setDisplayStudipTableImport(false)
-                }} />
+                }}/>
             </div>
         );
 
-
-
-        return(
+        return (
             <>
-                <Dialog header="Text import as JSON" visible={displayBasic} style={{ width: '50vw' }} footer={footerBasic} onHide={() => setDisplayBasic(false)}>
-                    <p>Please paste the JSON content as text inside</p>
-                    <InputTextarea rows={30} cols={80} value={textImportValue} onChange={(e) => setTextImportValue(e.target.value)} >
-
-                    </InputTextarea>
+                <Dialog header={t("import.jsonTextHeader")} visible={displayJsonTextImport} style={{width: 'min(800px, 95vw)'}} footer={footerJson} onHide={() => setDisplayJsonTextImport(false)}>
+                    <p>{t("import.jsonTextHint")}</p>
+                    <InputTextarea rows={20} style={{width: "100%"}} value={jsonTextImportValue} onChange={(e) => setJsonTextImportValue(e.target.value)}/>
                 </Dialog>
-                <Dialog header="Text import as JSON" visible={displayStudipTableImport} style={{ width: '50vw' }} footer={footerStudip} onHide={() => setDisplayBasic(false)}>
-                    <p>Please paste the StudIp Table content as text inside</p>
-                    <InputTextarea rows={30} cols={80} value={displayStudipTableImportText} onChange={(e) => setDisplayStudipTableImportText(e.target.value)} >
-
-                    </InputTextarea>
+                <Dialog header={t("import.htmlTextHeader")} visible={displayStudipTableImport} style={{width: 'min(800px, 95vw)'}} footer={footerStudip} onHide={() => setDisplayStudipTableImport(false)}>
+                    <p>{t("import.htmlTextHint")}</p>
+                    <InputTextarea rows={20} style={{width: "100%"}} value={studipTableImportValue} onChange={(e) => setStudipTableImportValue(e.target.value)}/>
                 </Dialog>
             </>
-        )
+        );
     }
 
-    function renderSpitLine(){
-        return (
-            <div style={{width: "100%", height: 2, backgroundColor: "gray", marginTop: 10, marginBottom: 10}}></div>
-        )
-    }
-
-    function renderSwitchButton(){
-        let disabled = (selectedSlotFirst && selectedSlotSecond) ? false : true;
-        let label = disabled ? "Switch (select 2)" : "Switch selection";
-
-        return (
-            <Button disabled={disabled} label={label} icon="pi pi-arrows-h" className="p-button-warning" style={{margin: 5}} onClick={() => {handleSwitchSelection()}} />
-        )
-    }
-
-    function getChanges(){
-        let groups = newPlan?.groups || {};
-        let groupNames = Object.keys(groups);
-        let changes: any[] = [];
-        if(!!oldPlan && !!newPlan){
-            for(let groupName of groupNames){
-                let groupInOldPlan = oldPlan?.groups?.[groupName];
-                let groupInNewPlan = newPlan?.groups?.[groupName];
-                let oldSlot = groupInOldPlan?.selectedSlot;
-                let newSlot = groupInNewPlan?.selectedSlot;
-                let tutorInOldPlan = oldSlot?.tutor;
-                let tutorInNewPlan = newSlot?.tutor;
-                let tutorChanged = tutorInOldPlan !== tutorInNewPlan;
-                if(tutorChanged){
-                    let change = {
-                        groupName: groupName,
-                        oldSlot: oldSlot,
-                        newSlot: newSlot,
-                    };
-                    changes.push(change);
-                }
-            }
-        }
-        return changes;
-    }
-
-    function renderChange(changeItem: any, backgroundColor: any): ReactNode{
-        let key = JSON.stringify(changeItem);
-        let oldSlot = changeItem?.oldSlot;
-        let newSlot = changeItem?.newSlot;
-        let day = oldSlot?.day;
-        let time = oldSlot?.time;
-        let dayAndTime = day + " " + time;
-        let groupName = changeItem?.groupName;
-        let tutorInOldPlan = oldSlot?.tutor;
-        let tutorInNewPlan = newSlot?.tutor;
-
-        return(
-            <div key={key} style={{flexDirection: "row", display: "flex", paddingBottom: 20, backgroundColor: backgroundColor}}>
-                <div key={"day & time"} style={{flexGrow: 1, flex: 3}}>{dayAndTime}</div>
-                <div key={"group"} style={{flexGrow: 1, flex: 3}}>{groupName}</div>
-                <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                <div key={"before"} style={{flexGrow: 1, flex: 3}}>{tutorInOldPlan}</div>
-                <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{"-->"}</div>
-                <div key={"after"} style={{flexGrow: 1, flex: 3}}>{tutorInNewPlan}</div>
-            </div>
-        )
-    }
-
-    function renderChanges(){
-        let changes = getChanges();
-
-        let amountOfChanges = changes.length;
-        let renderedChanges: ReactNode[] = [];
-        let index = 0;
-        for(let change of changes){
-            index++;
-            let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
-            renderedChanges.push(renderChange(change, backgroundColor));
-        }
-
-        return(
-            <>
-                <div>{"Changes ("+amountOfChanges+")"}</div>
-                <div key={"changesHeader"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
-                    <div key={"day & time"} style={{flexGrow: 1, flex: 3}}>{"Day & Time"}</div>
-                    <div key={"group"} style={{flexGrow: 1, flex: 3}}>{"Group"}</div>
-                    <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                    <div key={"before"} style={{flexGrow: 1, flex: 3}}>{"before"}</div>
-                    <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                    <div key={"after"} style={{flexGrow: 1, flex: 3}}>{"after"}</div>
-                </div>
-                <div style={{width: "100%"}}>
-                    {renderedChanges}
-                </div>
-            </>
-        )
-    }
-
-    function renderSingleGroup(groupName: any, backgroundColor: any): ReactNode{
-        let group = oldPlan?.groups?.[groupName];
-        let oldSlot = group?.selectedSlot;
-        let day = oldSlot?.day;
-        let time = oldSlot?.time;
-        let dayAndTime = day + " " + time;
-        let tutorInOldPlan = oldSlot?.tutor;
-        let key = groupName + dayAndTime + tutorInOldPlan;
-        return(
-            <div key={key} style={{flexDirection: "row", display: "flex", backgroundColor: backgroundColor}}>
-                <div key={"dayAndTime"} style={{flexGrow: 1, flex: 1}}>{dayAndTime}</div>
-                <div key={"groupName"} style={{flexGrow: 1, flex: 2}}>{groupName}</div>
-                <div key={"split1"} style={{flexGrow: 1, flex: 2}}>{"("+tutorInOldPlan+")"}</div>
-            </div>
-        )
-    }
-
-    function renderSingleGroups(){
-        let groups = oldPlan?.groups || {};
-        let groupNames = Object.keys(groups);
-        let renderedSingleGroups: ReactNode[] = [];
-        let index = 0;
-        for(let groupName of groupNames){
-            let group = groups[groupName];
-            let members = group?.members || [];
-            let amountOfMembers = members.length;
-            if(amountOfMembers === 1){
-                index++;
-                let backgroundColor = index % 2 == 0 ? "transparent" : "#ffffff";
-                renderedSingleGroups.push(renderSingleGroup(groupName, backgroundColor));
-            }
-        }
-
-        return (
-            <>
-                <div>{"Single Groups"}</div>
-                <div key={"changesHeader"} style={{flexDirection: "row", display: "flex", width: "100%", paddingBottom: 20}}>
-                    <div key={"day & time"} style={{flexGrow: 1, flex: 1}}>{"Day & Time"}</div>
-                    <div key={"group"} style={{flexGrow: 1, flex: 2}}>{"Group"}</div>
-                    <div key={"tutor"} style={{flexGrow: 1, flex: 2}}>{"(Tutor)"}</div>
-                </div>
-                <div style={{width: "100%"}}>
-                    {renderedSingleGroups}
-                </div>
-            </>
-        )
-    }
-
-    function useRenderTutorInformations(){
-        let amountOfGroups = Object.keys(oldPlan?.groups || {}).length;
-
-        return(
-            <>
-                <div>{"Amount Groups: "+amountOfGroups}</div>
-                <div>{"Slot duration: "+JSONToGraph.getSlotDurationMinutes(oldPlan)+" min"}</div>
-                <div key={"info"} style={{flexDirection: "row", display: "flex", paddingBottom: 20}}>
-                    <div key={"Tutor Auslastung"} style={{flexGrow: 1, flex: 4}}>{"Tutor (multiplier)"}</div>
-                    <div key={"vorher"} style={{flexGrow: 1, flex: 1}}>{"before"}</div>
-                    <div key={"space1"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                    <div key={"nachher"} style={{flexGrow: 1, flex: 1}}>{"after"}</div>
-                    <div key={"space2"} style={{flexGrow: 1, flex: 1}}>{""}</div>
-                    <div key={"angebote"} style={{flexGrow: 1, flex: 1}}>{"avail. slots"}</div>
-                </div>
-                <div style={{width: "100%"}}>
-                    {useRenderTutorAuslastung()}
-                </div>
-                {renderSpitLine()}
-                {renderChanges()}
-                {renderSpitLine()}
-                {renderSingleGroups()}
-                {renderSpitLine()}
-                {renderTimeplanForTutors()}
-            </>
-        )
-    }
-
-    function renderTimeplanForTutors() {
-        const plan = newPlan || oldPlan; // Use newPlan if available, otherwise fallback to oldPlan
-        const tutorsDict = plan?.tutors || {};
-        const groupsDict = plan?.groups || {};
-
-        // Render timeplans for each tutor
-        const renderedTimeplans = Object.keys(tutorsDict).map((tutorKey) => {
-            const tutorTimeplan: ReactNode[] = [];
-            const tutorSchedule = tutorsDict[tutorKey];
-
-            // Loop through each weekday
-            Object.keys(tutorSchedule).forEach((weekday) => {
-                const hours = tutorSchedule[weekday];
-
-                // Loop through each hour in the schedule
-                Object.keys(hours).forEach((hour) => {
-                    const groupsForTime = Object.keys(groupsDict).filter((groupKey) => {
-                        const group = groupsDict[groupKey];
-                        return (
-                            group.selectedSlot?.tutor === tutorKey &&
-                            group.selectedSlot?.day === weekday &&
-                            group.selectedSlot?.time === hour
-                        );
-                    });
-
-                    if(groupsForTime.length === 0) {
-                        return;
-                    }
-
-                    // Format groups as a comma-separated list
-                    const groupNames = groupsForTime.join(", ");
-
-                    // Add a row for this time slot
-                    tutorTimeplan.push(
-                        <div key={`${tutorKey}-${weekday}-${hour}`} style={{ margin: "5px 0" }}>
-                            <span><strong>{weekday}</strong> - {hour}: </span>
-                            <span>{groupNames || "No group assigned"}</span>
-                        </div>
-                    );
-                });
-            });
-
-            // Render tutor's timeplan
-            return(
-                <>
-                    <div key={tutorKey} style={{ marginBottom: "20px" }}>
-                        <h3>{tutorKey}</h3>
-                        <div>{tutorTimeplan}</div>
-                    </div>
-
-                    {renderSpitLine()}
-                </>
-            );
-        });
-
-        return <div>{renderedTimeplans}</div>;
-    }
-
-
-    const uploadJSONOptions = {label: 'Load JSON', icon: 'pi pi-upload', className: 'p-button-success'};
-    const uploadHtmlOptions = {label: 'Load HTML Table', icon: 'pi pi-upload', className: 'p-button-success'};
-    const leftContents = (
-        <div style={{width: "100%", flexGrow: 1, flexDirection: "column", display: "flex", flex: 1, backgroundColor: "#EEEEEE", paddingLeft: 10,paddingTop: 20, paddingRight: 10}}>
-            <div>
-
-                {renderParseStudipFileUpload()}
-                {renderImportTextButton()}
-                {renderImportStudipTableButton()}
-                <FileUpload auto chooseOptions={uploadJSONOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportJson(event)}} style={{margin: 5, display: "inline-block"}} />
-                <FileUpload auto chooseOptions={uploadHtmlOptions} accept="application/CSV" mode="basic" name="demo[]" url="./upload" className="p-button-success" customUpload uploadHandler={(event) => {handleImportHtmlTable(event)}} style={{margin: 5, display: "inline-block"}} />
-            </div>
-
-            {renderSpitLine()}
-
-            <div>
-                {renderMergeSingleGroupsButton()}
-                {renderOptimizeButton()}
-                {renderSwitchButton()}
-            </div>
-
-            {renderSpitLine()}
-
-            <div>
-                {renderDownloadButton()}
-                {renderDownloadGroupsForTutor()}
-                {renderDownloadAsStudipHTMLTableButton()}
-            </div>
-            {renderSpitLine()}
-            {useRenderTutorInformations()}
-            {renderSpitLine()}
-            {renderImportTextDialog()}
-        </div>
+    return (
+        <>
+            {renderLanguageSection()}
+            {renderImportSection()}
+            {renderEditSection()}
+            {renderExportSection()}
+            {renderTutorSection()}
+            {renderChangesSection()}
+            {renderSingleGroupsSection()}
+            {renderTimeplansSection()}
+            {renderImportDialogs()}
+        </>
     );
-
-    const iconCalcAuto = "pi pi-sync"
-    const iconCalcManual = "pi pi-refresh"
-
-    return leftContents
-  }
+};
