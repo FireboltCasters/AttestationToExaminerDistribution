@@ -21,6 +21,8 @@ export interface EditSheetProps {
     onMoveTutorSlot: (slot: SlotRef, day: string, time: string) => void;
     onDeleteTutorSlot: (slot: SlotRef) => void;
     onAddGroup: (slot: SlotRef, members: string[]) => void;
+    isHidingOtherSlotsOfTutor: (slot: SlotRef) => boolean;
+    onHideOtherSlotsOfTutor: (slot: SlotRef, hide: boolean) => void;
 }
 
 export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
@@ -67,6 +69,12 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
                     <span>{formatSlot(slot)}</span>
                     {condition ? <span className="atd-condition">{condition}</span> : null}
                 </div>
+                <label className="atd-checkbox atd-edit-filter">
+                    <input type="checkbox" checked={props.isHidingOtherSlotsOfTutor(slot)}
+                           onChange={(e) => props.onHideOtherSlotsOfTutor(slot, e.target.checked)}/>
+                    <i className="pi pi-filter"/>
+                    {t("filter.hideOtherSlotsOfTutor", {tutor: slot.tutor})}
+                </label>
             </>
         );
     }

@@ -10,6 +10,7 @@ import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {useI18n} from "../i18n/I18n";
 import {DragPayload, EditTarget, getSelectionKey, getSlotKey, getTutorColor, Selection, SlotRef} from "./PlanTypes";
 import {HistoryLabel, usePlanHistory} from "./usePlanHistory";
+import {getFilterKey, isFreeTutorSlotVisible, isGroupVisible, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 import "./Plan.css";
 
 type PlanFunction = (plan: any) => any;
@@ -32,6 +33,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
 
     const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
     const [hideEmptyRows, setHideEmptyRows] = useState(false);
+    const [filters, setFilters] = useState<ViewFilter[]>([]);
 
     const currentPlan = newPlan || oldPlan;
 
@@ -357,12 +359,14 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
         let groups = currentPlan?.groups || {};
         let groupNames = Object.keys(groups)
             .filter((groupName) => groups[groupName]?.selectedSlot?.day === day && groups[groupName]?.selectedSlot?.time === time)
+            .filter((groupName) => isGroupVisible(filters, currentPlan, groupName))
             .sort((a, b) => (groups[a].selectedSlot.tutor || "").localeCompare(groups[b].selectedSlot.tutor || "") || a.localeCompare(b));
 
         let freeTutorSlots: SlotRef[] = Object.keys(currentPlan?.tutors || {})
             .filter((tutor) => currentPlan.tutors[tutor]?.[day]?.[time])
             .map((tutor) => ({tutor, day, time}))
             .filter((slot) => PlanEditHelper.isTutorSlotFree(currentPlan, slot))
+            .filter((slot) => isFreeTutorSlotVisible(filters, slot))
             .sort((a, b) => a.tutor.localeCompare(b.tutor));
 
         return {groupNames, freeTutorSlots};
@@ -410,6 +414,19 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     {weekdays.map((day) => <div key={"head-" + day} className="atd-grid-head">{t("weekday." + day)}</div>)}
                     {rows}
                 </div>
+            </div>
+        );
+    }
+
+    function renderFilterBanner() {
+        if(filters.length === 0) {
+            return null;
+        }
+        return (
+            <div className="atd-banner atd-banner-filter">
+                <i className="pi pi-filter"/>
+                <span className="atd-banner-text">{t("filter.active", {count: filters.length})}</span>
+                <Button label={t("filter.resetAll")} icon="pi pi-filter-slash" className="p-button-sm p-button-outlined" onClick={() => setFilters([])}/>
             </div>
         );
     }
@@ -462,6 +479,11 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
             <EditSheet
                 target={editTarget}
                 plan={currentPlan}
+                isHidingOtherSlotsOfTutor={(slot) => filters.some((f) => f.kind === "otherSlotsOfTutor" && f.tutor === slot.tutor
+                    && (getSlotKey(f.keepSlot) === getSlotKey(slot) || (editTarget?.kind === "group" && f.keepGroup === editTarget.groupName)))}
+                onHideOtherSlotsOfTutor={(slot, hide) => setFilters(hide
+                    ? setFilter(filters, {kind: "otherSlotsOfTutor", tutor: slot.tutor, keepSlot: slot, keepGroup: editTarget?.kind === "group" ? editTarget.groupName : undefined})
+                    : removeFilter(filters, getFilterKey({kind: "otherSlotsOfTutor", tutor: slot.tutor, keepSlot: slot})))}
                 onHide={() => setEditTarget(null)}
                 onSaveMembers={(groupName, members) => {
                     let renamedGroupName: string | undefined = undefined;
@@ -509,6 +531,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     </div>
                 </div>
                 {renderSwitchBanner()}
+                {renderFilterBanner()}
                 {renderPlan()}
             </main>
             <aside className="atd-sidebar">
@@ -521,6 +544,8 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     historyEntries={history.entries}
                     historyIndex={history.index}
                     goToHistory={goToHistory}
+                    filters={filters}
+                    setFilters={setFilters}
                     hideEmptyRows={hideEmptyRows}
                     setHideEmptyRows={setHideEmptyRows}
                     reloadNumber={reloadNumber}

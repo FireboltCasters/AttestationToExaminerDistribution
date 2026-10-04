@@ -13,6 +13,7 @@ import HtmlTableStudIp from "../helper/HtmlTableStudIp";
 import {Language, LANGUAGE_OPTIONS, useI18n} from "../i18n/I18n";
 import {getTutorColor} from "./PlanTypes";
 import {HistoryEntry, HistoryLabel} from "./usePlanHistory";
+import {getFilterKey, hasFilter, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 
 export interface AppState {
     oldPlan: any;
@@ -23,6 +24,8 @@ export interface AppState {
     historyEntries: HistoryEntry[];
     historyIndex: number;
     goToHistory: (index: number) => void;
+    filters: ViewFilter[];
+    setFilters: (filters: ViewFilter[]) => void;
     hideEmptyRows: boolean;
     setHideEmptyRows: (hide: boolean) => void;
     reloadNumber: number;
@@ -170,10 +173,78 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                     <Button label={t("edit.resetChanges")} icon="pi pi-replay" className="p-button-outlined p-button-danger" disabled={!newPlan}
                             onClick={() => commitPlans(oldPlan, null, {key: "history.resetChanges"})}/>
                 </div>
+            </div>
+        );
+    }
+
+    function getFilterLabel(filter: ViewFilter): string {
+        switch(filter.kind) {
+            case "otherSlotsOfTutor":
+                if(filter.keepGroup) {
+                    return t("filter.otherSlotsOfTutorGroupLabel", {tutor: filter.tutor, group: filter.keepGroup});
+                }
+                return t("filter.otherSlotsOfTutorLabel", {tutor: filter.tutor, day: t("weekday." + filter.keepSlot.day), time: filter.keepSlot.time});
+            case "hideTutor":
+                return t("filter.hideTutorLabel", {tutor: filter.tutor});
+            default:
+                return t("filter.onlySingleGroups");
+        }
+    }
+
+    function renderFilterSection() {
+        let filters = props.filters;
+        let tutors = Object.keys(usePlan?.tutors || {}).sort();
+
+        function toggle(filter: ViewFilter, active: boolean) {
+            props.setFilters(active ? setFilter(filters, filter) : removeFilter(filters, getFilterKey(filter)));
+        }
+
+        return (
+            <div className="atd-panel">
+                <div className="atd-panel-row" style={{marginBottom: 6}}>
+                    <h3 style={{margin: 0, whiteSpace: "nowrap"}}><i className="pi pi-filter" style={{marginRight: 6}}/>{t("filter.title")}</h3>
+                    <Button label={t("filter.reset")} tooltip={t("filter.resetAll")} icon="pi pi-filter-slash" className="p-button-text p-button-sm" disabled={filters.length === 0}
+                            onClick={() => props.setFilters([])}/>
+                </div>
+                <label className="atd-checkbox">
+                    <input type="checkbox" checked={hasFilter(filters, "onlySingleGroups")}
+                           onChange={(e) => toggle({kind: "onlySingleGroups"}, e.target.checked)}/>
+                    {t("filter.onlySingleGroups")}
+                </label>
                 <label className="atd-checkbox">
                     <input type="checkbox" checked={props.hideEmptyRows} onChange={(e) => props.setHideEmptyRows(e.target.checked)}/>
                     {t("edit.hideEmptyRows")}
                 </label>
+
+                <div className="atd-filter-subtitle">{t("filter.tutors")}</div>
+                <div className="atd-filter-tutors">
+                    {tutors.map((tutor) => {
+                        let hideTutorFilter: ViewFilter = {kind: "hideTutor", tutor};
+                        return (
+                            <label key={tutor} className="atd-checkbox atd-filter-tutor">
+                                <input type="checkbox" checked={!hasFilter(filters, getFilterKey(hideTutorFilter))}
+                                       onChange={(e) => toggle(hideTutorFilter, !e.target.checked)}/>
+                                <span className="atd-tutor-dot" style={{["--atd-tutor-color" as any]: getTutorColor(tutor, usePlan)}}/>
+                                {tutor}
+                            </label>
+                        );
+                    })}
+                </div>
+
+                <div className="atd-filter-subtitle">{t("filter.activeTitle", {count: filters.length})}</div>
+                {filters.length === 0 ? <div className="atd-muted">{t("filter.none")}</div> : (
+                    <div className="atd-filter-chips">
+                        {filters.map((filter) => (
+                            <span key={getFilterKey(filter)} className="atd-filter-chip">
+                                {getFilterLabel(filter)}
+                                <button type="button" aria-label={t("filter.remove")} title={t("filter.remove")}
+                                        onClick={() => props.setFilters(removeFilter(filters, getFilterKey(filter)))}>
+                                    <i className="pi pi-times"/>
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     }
@@ -489,6 +560,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
             {renderLanguageSection()}
             {renderImportSection()}
             {renderEditSection()}
+            {renderFilterSection()}
             {renderHistorySection()}
             {renderExportSection()}
             {renderTutorSection()}
