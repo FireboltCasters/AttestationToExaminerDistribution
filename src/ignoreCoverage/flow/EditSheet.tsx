@@ -18,7 +18,7 @@ export interface EditSheetProps {
     onSplitGroup: (groupName: string) => void;
     onDeleteGroup: (groupName: string) => void;
     onSaveCondition: (slot: SlotRef, condition: string) => void;
-    onMoveTutorSlot: (slot: SlotRef, day: string, time: string) => void;
+    onMoveTutorSlot: (slot: SlotRef, day: string, time: string, tutor: string) => void;
     onDeleteTutorSlot: (slot: SlotRef) => void;
     onAddGroup: (slot: SlotRef, members: string[]) => void;
     isHidingOtherSlotsOfTutor: (slot: SlotRef) => boolean;
@@ -34,6 +34,7 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
     const [conditionDraft, setConditionDraft] = useState("");
     const [moveDay, setMoveDay] = useState<string | null>(null);
     const [moveTime, setMoveTime] = useState<string | null>(null);
+    const [moveTutor, setMoveTutor] = useState<string>("");
     const [newGroupNames, setNewGroupNames] = useState("");
 
     const group = target?.kind === "group" ? plan?.groups?.[target.groupName] : undefined;
@@ -46,11 +47,41 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
         setConditionDraft(condition || "");
         setMoveDay(slot?.day || null);
         setMoveTime(slot?.time || null);
+        setMoveTutor(slot?.tutor || "");
         setNewGroupNames("");
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [JSON.stringify(target), JSON.stringify(group), condition]);
 
     const weekdays = JSONToGraph.getWorkingWeekdays();
+    const tutorOptions = Object.keys(plan?.tutors || {}).sort().map((tutor) => ({label: tutor, value: tutor}));
+
+    function renderTutorDropdown() {
+        return (
+            <Dropdown value={moveTutor} options={tutorOptions} editable filter onChange={(e) => setMoveTutor(e.value || "")} placeholder={t("modal.tutor")}/>
+        );
+    }
+
+    function renderChangeTutorSection(currentSlot: SlotRef) {
+        let tutor = moveTutor.trim();
+        let changeTarget: SlotRef | undefined = tutor && tutor !== currentSlot.tutor ? {tutor, day: currentSlot.day, time: currentSlot.time} : undefined;
+        let changeTargetTaken = !!changeTarget && PlanEditHelper.tutorHasSlot(plan, changeTarget);
+        return (
+            <div className="atd-edit-section">
+                <h4>{t("modal.changeTutor")}</h4>
+                <div className="atd-edit-row">
+                    {renderTutorDropdown()}
+                </div>
+                {changeTargetTaken ? <small className="atd-muted">{t("dnd.slotTaken")}</small> : null}
+                <div className="atd-buttons">
+                    <Button label={t("modal.applyTutor")} icon="pi pi-user-edit" className="p-button-sm" disabled={!changeTarget || changeTargetTaken} onClick={() => {
+                        if(changeTarget) {
+                            props.onMoveTutorSlot(currentSlot, currentSlot.day, currentSlot.time, changeTarget.tutor);
+                        }
+                    }}/>
+                </div>
+            </div>
+        );
+    }
 
     function formatSlot(s: SlotRef) {
         return t("weekday." + s.day) + " " + s.time + " · " + s.tutor;
@@ -109,6 +140,8 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
                     </div>
                 </div>
 
+                {group?.selectedSlot ? renderChangeTutorSection(group.selectedSlot) : null}
+
                 <div className="atd-edit-section">
                     <h4>{t("modal.assignSlot")}</h4>
                     <Dropdown value={assignSlotKey} options={slotOptions} filter onChange={(e) => setAssignSlotKey(e.value)} placeholder={t("modal.assignSlotPlaceholder")}/>
@@ -145,7 +178,7 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
     function renderTutorSlotSections(tutorSlot: SlotRef) {
         let dayOptions = weekdays.map((day) => ({label: t("weekday." + day), value: day}));
         let timeOptions = JSONToGraph.getTimeslots(plan).map((time) => ({label: time, value: time}));
-        let moveTarget = moveDay && moveTime ? {tutor: tutorSlot.tutor, day: moveDay, time: moveTime} : undefined;
+        let moveTarget = moveDay && moveTime ? {tutor: moveTutor.trim() || tutorSlot.tutor, day: moveDay, time: moveTime} : undefined;
         let moveTargetTaken = !!moveTarget && PlanEditHelper.tutorHasSlot(plan, moveTarget);
 
         return (
@@ -163,14 +196,17 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
                 <div className="atd-edit-section">
                     <h4>{t("modal.moveSlot")}</h4>
                     <div className="atd-edit-row">
+                        {renderTutorDropdown()}
+                    </div>
+                    <div className="atd-edit-row">
                         <Dropdown value={moveDay} options={dayOptions} onChange={(e) => setMoveDay(e.value)} placeholder={t("modal.day")}/>
                         <Dropdown value={moveTime} options={timeOptions} onChange={(e) => setMoveTime(e.value)} placeholder={t("time")}/>
                     </div>
                     {moveTargetTaken && !PlanEditHelper.isSameSlot(moveTarget, tutorSlot) ? <small className="atd-muted">{t("dnd.slotTaken")}</small> : null}
                     <div className="atd-buttons">
                         <Button label={t("modal.move")} icon="pi pi-arrows-alt" className="p-button-sm" disabled={!moveTarget || moveTargetTaken} onClick={() => {
-                            if(moveDay && moveTime) {
-                                props.onMoveTutorSlot(tutorSlot, moveDay, moveTime);
+                            if(moveTarget) {
+                                props.onMoveTutorSlot(tutorSlot, moveTarget.day, moveTarget.time, moveTarget.tutor);
                             }
                         }}/>
                     </div>

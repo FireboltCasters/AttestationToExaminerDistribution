@@ -239,12 +239,12 @@ export default class PlanEditHelper {
     }
 
     /**
-     * Moves an offered slot of a tutor to another day and time.
+     * Moves an offered slot of a tutor to another day and time and optionally to another tutor.
      * The condition of the slot and all groups which are assigned to this slot are moved too.
      */
-    static moveTutorSlot(plan: any, from: SlotRef, toDay: string, toTime: string): any {
+    static moveTutorSlot(plan: any, from: SlotRef, toDay: string, toTime: string, toTutor: string = from.tutor): any {
         let newPlan = PlanEditHelper.clone(plan);
-        let to: SlotRef = {tutor: from.tutor, day: toDay, time: toTime};
+        let to: SlotRef = {tutor: toTutor.trim() || from.tutor, day: toDay, time: toTime};
         if(PlanEditHelper.isSameSlot(from, to) || !PlanEditHelper.tutorHasSlot(newPlan, from) || PlanEditHelper.tutorHasSlot(newPlan, to)) {
             return newPlan;
         }
@@ -253,8 +253,7 @@ export default class PlanEditHelper {
         if(Object.keys(tutorSlots[from.day]).length === 0) {
             delete tutorSlots[from.day];
         }
-        tutorSlots[toDay] = tutorSlots[toDay] || {};
-        tutorSlots[toDay][toTime] = true;
+        newPlan = PlanEditHelper.addTutorSlot(newPlan, to);
 
         let condition = newPlan.tutorSlotConditions?.[from.tutor]?.[from.day]?.[from.time];
         if(condition !== undefined) {

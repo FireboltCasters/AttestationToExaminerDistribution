@@ -66,6 +66,15 @@ test('Tutor slots can be moved with condition and groups', () => {
     let blocked = PlanEditHelper.moveTutorSlot(getPlan(), {tutor: "T1", day: "Monday", time: "08:00"}, "Monday", "08:30");
     expect(blocked).toEqual(getPlan());
 
+    let otherTutor = PlanEditHelper.moveTutorSlot(getPlan(), {tutor: "T1", day: "Monday", time: "08:00"}, "Monday", "08:00", "T2");
+    expect(otherTutor.tutors["T1"]).toEqual({"Monday": {"08:30": true}});
+    expect(otherTutor.tutors["T2"]["Monday"]["08:00"]).toBe(true);
+    expect(otherTutor.groups["A & B"].selectedSlot).toEqual({tutor: "T2", day: "Monday", time: "08:00"});
+
+    let movedCondition = PlanEditHelper.moveTutorSlot(getPlan(), {tutor: "T1", day: "Monday", time: "08:30"}, "Monday", "08:30", "T3");
+    expect(movedCondition.tutorSlotConditions).toEqual({"T3": {"Monday": {"08:30": "Präsenz"}}});
+    expect(movedCondition.tutorMultipliers["T3"]).toBe(1);
+
     let deleted = PlanEditHelper.deleteTutorSlot(getPlan(), {tutor: "T1", day: "Monday", time: "08:30"});
     expect(deleted.tutors["T1"]).toEqual({"Monday": {"08:00": true}});
     expect(deleted.tutorSlotConditions).toEqual({});

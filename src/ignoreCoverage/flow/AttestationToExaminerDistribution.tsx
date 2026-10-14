@@ -152,13 +152,19 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
         }, (plan) => createdGroupName ? PlanEditHelper.moveGroupToSlot(plan, createdGroupName, slot) : plan);
     }
 
-    function moveTutorSlot(slot: SlotRef, day: string, time: string) {
-        if(PlanEditHelper.tutorHasSlot(currentPlan, {tutor: slot.tutor, day, time})) {
+    function moveTutorSlot(slot: SlotRef, day: string, time: string, tutor: string = slot.tutor) {
+        let to: SlotRef = {tutor: tutor.trim() || slot.tutor, day, time};
+        if(PlanEditHelper.isSameSlot(slot, to)) {
+            return false;
+        }
+        if(PlanEditHelper.tutorHasSlot(currentPlan, to)) {
             showToast("warn", t("dnd.slotTaken"));
             return false;
         }
-        applyEdit({key: "history.moveTutorSlot", params: {tutor: slot.tutor, fromDay: slot.day, fromTime: slot.time, day, time}},
-            (plan) => PlanEditHelper.moveTutorSlot(plan, slot, day, time), null);
+        let label: HistoryLabel = to.tutor === slot.tutor
+            ? {key: "history.moveTutorSlot", params: {tutor: slot.tutor, fromDay: slot.day, fromTime: slot.time, day, time}}
+            : {key: "history.changeTutor", params: {fromTutor: slot.tutor, fromDay: slot.day, fromTime: slot.time, ...slotParams(to)}};
+        applyEdit(label, (plan) => PlanEditHelper.moveTutorSlot(plan, slot, to.day, to.time, to.tutor), null);
         return true;
     }
 
@@ -516,8 +522,8 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     (plan) => PlanEditHelper.deleteGroup(plan, groupName), null))}
                 onSaveCondition={(slot, condition) => closeAfter(() => applyEdit({key: "history.condition", params: {...slotParams(slot), condition: condition.trim() || "–"}},
                     (plan) => PlanEditHelper.setTutorSlotCondition(plan, slot, condition), null))}
-                onMoveTutorSlot={(slot, day, time) => {
-                    if(moveTutorSlot(slot, day, time)) {
+                onMoveTutorSlot={(slot, day, time, tutor) => {
+                    if(moveTutorSlot(slot, day, time, tutor)) {
                         setEditTarget(null);
                     }
                 }}
