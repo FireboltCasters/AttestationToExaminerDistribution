@@ -10,7 +10,7 @@ import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {useI18n} from "../i18n/I18n";
 import {DragPayload, EditTarget, getSelectionKey, getSlotKey, getTutorColor, Selection, SlotRef} from "./PlanTypes";
 import {HistoryLabel, usePlanHistory} from "./usePlanHistory";
-import {getFilterKey, isFreeTutorSlotVisible, isGroupVisible, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
+import {getFilterKey, getOnlyTutor, isFreeTutorSlotVisible, isGroupVisible, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 import "./Plan.css";
 
 type PlanFunction = (plan: any) => any;
@@ -63,6 +63,21 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     });
+
+    /**
+     * Opens the print dialog of the browser, the print styles show only the plan as it is displayed,
+     * so it can be saved as PDF there.
+     */
+    function printPlan() {
+        let previousTitle = document.title;
+        let onlyTutor = getOnlyTutor(filters);
+        // the title is used as file name suggestion for the PDF
+        document.title = t("export.pdfTitle") + (onlyTutor ? " - " + onlyTutor : "");
+        window.addEventListener("afterprint", () => {
+            document.title = previousTitle;
+        }, {once: true});
+        window.print();
+    }
 
     function showToast(severity: "success" | "info" | "warn" | "error", detail: string) {
         toast.current?.show({severity, summary: detail, life: 3000});
@@ -529,6 +544,8 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                         <h1>{t("title")}</h1>
                         <p>{t("subtitle")}</p>
                     </div>
+                    <Button label={t("export.pdf")} icon="pi pi-file-pdf" className="p-button-sm p-button-outlined atd-no-print" tooltip={t("export.pdfHint")} tooltipOptions={{position: "left"}}
+                            disabled={!currentPlan} onClick={printPlan}/>
                 </div>
                 {renderSwitchBanner()}
                 {renderFilterBanner()}
@@ -548,6 +565,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     setFilters={setFilters}
                     hideEmptyRows={hideEmptyRows}
                     setHideEmptyRows={setHideEmptyRows}
+                    printPlan={printPlan}
                     reloadNumber={reloadNumber}
                     setReloadNumber={setReloadNumber}
                     showToast={showToast}

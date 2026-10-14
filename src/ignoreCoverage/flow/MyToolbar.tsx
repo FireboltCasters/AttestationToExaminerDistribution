@@ -13,7 +13,7 @@ import HtmlTableStudIp from "../helper/HtmlTableStudIp";
 import {Language, LANGUAGE_OPTIONS, useI18n} from "../i18n/I18n";
 import {getTutorColor} from "./PlanTypes";
 import {HistoryEntry, HistoryLabel} from "./usePlanHistory";
-import {getFilterKey, hasFilter, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
+import {getFilterKey, getOnlyTutor, hasFilter, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 
 export interface AppState {
     oldPlan: any;
@@ -28,6 +28,7 @@ export interface AppState {
     setFilters: (filters: ViewFilter[]) => void;
     hideEmptyRows: boolean;
     setHideEmptyRows: (hide: boolean) => void;
+    printPlan: () => void;
     reloadNumber: number;
     setReloadNumber: (reloadNumber: number) => void;
     showToast: (severity: "success" | "info" | "warn" | "error", detail: string) => void;
@@ -186,6 +187,10 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                 return t("filter.otherSlotsOfTutorLabel", {tutor: filter.tutor, day: t("weekday." + filter.keepSlot.day), time: filter.keepSlot.time});
             case "hideTutor":
                 return t("filter.hideTutorLabel", {tutor: filter.tutor});
+            case "onlyTutor":
+                return t("filter.onlyTutorLabel", {tutor: filter.tutor});
+            case "hideFreeSlots":
+                return t("filter.hideFreeSlots");
             default:
                 return t("filter.onlySingleGroups");
         }
@@ -194,6 +199,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
     function renderFilterSection() {
         let filters = props.filters;
         let tutors = Object.keys(usePlan?.tutors || {}).sort();
+        let onlyTutor = getOnlyTutor(filters);
 
         function toggle(filter: ViewFilter, active: boolean) {
             props.setFilters(active ? setFilter(filters, filter) : removeFilter(filters, getFilterKey(filter)));
@@ -212,6 +218,11 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                     {t("filter.onlySingleGroups")}
                 </label>
                 <label className="atd-checkbox">
+                    <input type="checkbox" checked={hasFilter(filters, "hideFreeSlots")}
+                           onChange={(e) => toggle({kind: "hideFreeSlots"}, e.target.checked)}/>
+                    {t("filter.hideFreeSlots")}
+                </label>
+                <label className="atd-checkbox">
                     <input type="checkbox" checked={props.hideEmptyRows} onChange={(e) => props.setHideEmptyRows(e.target.checked)}/>
                     {t("edit.hideEmptyRows")}
                 </label>
@@ -220,13 +231,21 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                 <div className="atd-filter-tutors">
                     {tutors.map((tutor) => {
                         let hideTutorFilter: ViewFilter = {kind: "hideTutor", tutor};
+                        let isOnly = onlyTutor === tutor;
                         return (
-                            <label key={tutor} className="atd-checkbox atd-filter-tutor">
-                                <input type="checkbox" checked={!hasFilter(filters, getFilterKey(hideTutorFilter))}
-                                       onChange={(e) => toggle(hideTutorFilter, !e.target.checked)}/>
-                                <span className="atd-tutor-dot" style={{["--atd-tutor-color" as any]: getTutorColor(tutor, usePlan)}}/>
-                                {tutor}
-                            </label>
+                            <div key={tutor} className="atd-filter-tutor">
+                                <label className="atd-checkbox">
+                                    <input type="checkbox" checked={!hasFilter(filters, getFilterKey(hideTutorFilter))}
+                                           onChange={(e) => toggle(hideTutorFilter, !e.target.checked)}/>
+                                    <span className="atd-tutor-dot" style={{["--atd-tutor-color" as any]: getTutorColor(tutor, usePlan)}}/>
+                                    {tutor}
+                                </label>
+                                <button type="button" className={"atd-eye" + (isOnly ? " atd-eye-active" : "")}
+                                        aria-pressed={isOnly} aria-label={t("filter.onlyTutor", {tutor})} title={t("filter.onlyTutor", {tutor})}
+                                        onClick={() => toggle({kind: "onlyTutor", tutor}, !isOnly)}>
+                                    <i className="pi pi-eye"/>
+                                </button>
+                            </div>
                         );
                     })}
                 </div>
@@ -254,7 +273,8 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
             <div className="atd-panel">
                 <h3>{t("section.export")}</h3>
                 <div className="atd-buttons">
-                    <Button label={t("export.json")} icon="pi pi-download" disabled={!usePlan} onClick={handleExport}/>
+                    <Button label={t("export.pdf")} icon="pi pi-file-pdf" tooltip={t("export.pdfHint")} disabled={!usePlan} onClick={props.printPlan}/>
+                    <Button label={t("export.json")} icon="pi pi-download" className="p-button-outlined" disabled={!usePlan} onClick={handleExport}/>
                     <Button label={t("export.tutorGroups")} icon="pi pi-download" className="p-button-outlined" disabled={!usePlan} onClick={() => {
                         let groupsForTutor = ParseStudIPCSVToJSON.getGroupsForTutors(usePlan);
                         DownloadHelper.downloadTextAsFiletile(JSON.stringify(groupsForTutor, null, 2), "tutorsGroups.json");

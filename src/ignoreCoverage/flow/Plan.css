@@ -376,8 +376,44 @@
     gap: 2px 14px;
 }
 
+.atd-filter-tutor {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .atd-filter-tutors .atd-checkbox {
     margin-top: 4px;
+}
+
+.atd-eye {
+    margin-top: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-color-secondary, #6c757d);
+    cursor: pointer;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.45;
+}
+
+.atd-eye:hover {
+    opacity: 1;
+    background: #eef2ff;
+}
+
+.atd-eye.atd-eye-active {
+    opacity: 1;
+    color: #ffffff;
+    background: var(--primary-color, #6366F1);
+}
+
+.atd-eye .pi {
+    font-size: 0.8rem;
 }
 
 .atd-filter-chips {
@@ -572,5 +608,73 @@
         min-width: 0;
         border-left: none;
         overflow-y: visible;
+    }
+}
+
+/* Print / save as PDF: only the plan as it is displayed */
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .atd-sidebar,
+    .atd-banner,
+    .atd-card-edit,
+    .atd-no-print,
+    .p-toast,
+    .p-tooltip,
+    .p-dialog-mask {
+        display: none !important;
+    }
+
+    .atd-app {
+        display: block;
+        height: auto;
+        min-height: 0;
+        background: #ffffff;
+    }
+
+    .atd-main {
+        display: block;
+        padding: 0;
+    }
+
+    .atd-header {
+        margin-bottom: 8px;
+    }
+
+    .atd-header p {
+        display: none;
+    }
+
+    .atd-plan-scroll {
+        overflow: visible;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .atd-grid {
+        grid-template-columns: 52px repeat(var(--atd-days, 5), minmax(0, 1fr));
+        min-width: 0;
+    }
+
+    .atd-grid-head,
+    .atd-time {
+        position: static;
+    }
+
+    .atd-card {
+        break-inside: avoid;
+        cursor: default;
     }
 }

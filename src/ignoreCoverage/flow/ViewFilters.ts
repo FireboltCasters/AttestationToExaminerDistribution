@@ -9,6 +9,10 @@ export type ViewFilter =
     | {kind: "otherSlotsOfTutor", tutor: string, keepSlot: SlotRef, keepGroup?: string}
     // hides all slots of the tutor
     | {kind: "hideTutor", tutor: string}
+    // shows only the slots of this tutor, there is at most one such filter
+    | {kind: "onlyTutor", tutor: string}
+    // hides the slots of tutors without a group
+    | {kind: "hideFreeSlots"}
     // shows only single groups, everything else is hidden
     | {kind: "onlySingleGroups"};
 
@@ -18,6 +22,8 @@ export function getFilterKey(filter: ViewFilter): string {
             return "other:" + filter.tutor;
         case "hideTutor":
             return "tutor:" + filter.tutor;
+        case "onlyTutor":
+            return "onlyTutor";
         default:
             return filter.kind;
     }
@@ -44,6 +50,9 @@ function isTutorSlotHidden(filters: ViewFilter[], slot: SlotRef, groupName?: str
         if(filter.kind === "hideTutor" && filter.tutor === slot.tutor) {
             return true;
         }
+        if(filter.kind === "onlyTutor" && filter.tutor !== slot.tutor) {
+            return true;
+        }
         if(filter.kind === "otherSlotsOfTutor" && filter.tutor === slot.tutor && getSlotKey(filter.keepSlot) !== getSlotKey(slot)
             && !(groupName !== undefined && filter.keepGroup === groupName)) {
             return true;
@@ -67,8 +76,17 @@ export function isGroupVisible(filters: ViewFilter[], plan: any, groupName: stri
 }
 
 export function isFreeTutorSlotVisible(filters: ViewFilter[], slot: SlotRef): boolean {
-    if(hasFilter(filters, "onlySingleGroups")) {
+    if(hasFilter(filters, "onlySingleGroups") || hasFilter(filters, "hideFreeSlots")) {
         return false;
     }
     return !isTutorSlotHidden(filters, slot);
+}
+
+export function getOnlyTutor(filters: ViewFilter[]): string | undefined {
+    for(const filter of filters) {
+        if(filter.kind === "onlyTutor") {
+            return filter.tutor;
+        }
+    }
+    return undefined;
 }
