@@ -77,3 +77,59 @@ test('Optimization respects decimal multipliers', () => {
     }
     expect(counts).toEqual({A: 4, B: 6});
 });
+
+test('Location modes are detected from the conditions', () => {
+    expect(JSONToGraph.getLocationMode("Präsenz")).toBe("onsite");
+    expect(JSONToGraph.getLocationMode("vor Ort")).toBe("onsite");
+    expect(JSONToGraph.getLocationMode("Online")).toBe("online");
+    expect(JSONToGraph.getLocationMode("Online unter Vorbehalt, sonst vor Ort")).toBe("online-reserved");
+    expect(JSONToGraph.getLocationMode("Online unter Vorbehalt, sonst in Präsenz")).toBe("online-reserved");
+    expect(JSONToGraph.getLocationMode(undefined)).toBe("unspecified");
+});
+
+test('Optimization does not switch groups between on-site and online', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let tutors: any = {A: {Monday: {}}, B: {Monday: {}}};
+    let tutorSlotConditions: any = {A: {Monday: {}}, B: {Monday: {}}};
+    let groups: any = {};
+    for(let i = 0; i < 6; i++) {
+        let time = JSONToGraph.minutesToTime(8 * 60 + i * 30);
+        tutors.A.Monday[time] = true;
+        tutors.B.Monday[time] = true;
+        tutorSlotConditions.A.Monday[time] = "vor Ort";
+        tutorSlotConditions.B.Monday[time] = "Online unter Vorbehalt, sonst vor Ort";
+        groups["G" + i] = {members: ["G" + i], selectedSlot: {tutor: "A", day: "Monday", time}, possibleSlots: {Monday: {[time]: true}}};
+    }
+    let plan = {groups, tutors, tutorSlotConditions};
+    let optimized = GraphHelper.getOptimizedDistribution(plan);
+    for(const name of Object.keys(optimized.groups)) {
+        expect(optimized.groups[name].selectedSlot.tutor).toBe("A");
+    }
+
+    // with the same condition the groups are distributed
+    let sameConditions: any = {A: {Monday: {}}, B: {Monday: {}}};
+    for(const time of Object.keys(tutors.A.Monday)) {
+        sameConditions.A.Monday[time] = "vor Ort";
+        sameConditions.B.Monday[time] = "Präsenz";
+    }
+    let optimizedSame = GraphHelper.getOptimizedDistribution({groups, tutors, tutorSlotConditions: sameConditions});
+    let counts: any = {A: 0, B: 0};
+    for(const name of Object.keys(optimizedSame.groups)) {
+        counts[optimizedSame.groups[name].selectedSlot.tutor]++;
+    }
+    expect(counts).toEqual({A: 3, B: 3});
+});
+
+test('Single groups are only merged with the same location mode', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let plan: any = {
+        tutors: {A: {Monday: {"08:00": true}}, B: {Monday: {"08:00": true}}},
+        tutorSlotConditions: {A: {Monday: {"08:00": "vor Ort"}}, B: {Monday: {"08:00": "Online unter Vorbehalt, sonst vor Ort"}}},
+        groups: {
+            X: {members: ["X"], selectedSlot: {tutor: "A", day: "Monday", time: "08:00"}, possibleSlots: {Monday: {"08:00": true}}},
+            Y: {members: ["Y"], selectedSlot: {tutor: "B", day: "Monday", time: "08:00"}, possibleSlots: {Monday: {"08:00": true}}},
+        },
+    };
+    let merged = GraphHelper.mergeSingleGroups(plan);
+    expect(Object.keys(merged.groups).sort()).toEqual(["X", "Y"]);
+});

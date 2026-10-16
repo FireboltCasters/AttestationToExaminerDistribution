@@ -362,6 +362,9 @@ export default class GraphHelper {
         for(let i=0; i<tutorPermutations.length; i++) {
             let tutorPermutation = tutorPermutations[i];
             let newPlanWithSwitchedTutors = this.getPlanWithSwitchedTutors(newPlanCopy, tutorPermutation, groupsAtTimeAndDay);
+            if(!this.isPlanKeepingLocationModes(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay)) {
+                continue; // a group would be switched between on-site and online
+            }
             let amountOfSwitches = this.countAmountOfSwitchesInPlan(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay);
 //            console.log("Permutation "+i+" amountOfSwitches: " + amountOfSwitches);
             if(amountOfSwitches < bestAmountOfSwitches) {
@@ -373,6 +376,16 @@ export default class GraphHelper {
 
         // we need to check if there is any permutation of the which has less switches
         return bestPlan;
+    }
+
+    static isPlanKeepingLocationModes(oldPlan: any, newPlan: any, groupNames: any): boolean {
+        for(const groupName of groupNames) {
+            let newSelectedSlot = newPlan.groups?.[groupName]?.selectedSlot;
+            if(!JSONToGraph.isSlotAllowedForGroup(oldPlan, groupName, newSelectedSlot)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static getPlanWithSwitchedTutors(newPlan: any, tutorPermutationArray: any, groupsAtTimeAndDayArray: any): any {
@@ -471,7 +484,7 @@ export default class GraphHelper {
                 let oldGroups = unoptimizedJSON.groups;
                 let oldGroupNames = Object.keys(oldGroups);
 
-                let singleGroups = [];
+                let singleGroupsByLocationMode: Record<string, string[]> = {};
 
                 for(let i=0; i<oldGroupNames.length; i++) {
                     let currentGroupName = oldGroupNames[i];
@@ -482,6 +495,9 @@ export default class GraphHelper {
                         let members = PlanEditHelper.getMembers(unoptimizedJSON, currentGroupName);
                         if(members.length === 1){
                             console.log("Found single group: " + currentGroupName + " at " + day + " " + time)
+                            // only merge groups with the same location mode, so nobody is switched between on-site and online
+                            let locationMode = JSONToGraph.getSlotLocationMode(unoptimizedJSON, useSelectedSlot);
+                            let singleGroups = singleGroupsByLocationMode[locationMode] = singleGroupsByLocationMode[locationMode] || [];
                             singleGroups.push(currentGroupName);
                             if(singleGroups.length >= 2){
                                 console.log("Found 2 single groups at the same time and day: " + singleGroups[0] + " and " + singleGroups[1])
@@ -509,7 +525,7 @@ export default class GraphHelper {
                                 delete newPlan.groups[otherGroupName];
                                 delete newPlan.groups[currentGroupName];
 
-                                singleGroups = [] // reset the array
+                                singleGroupsByLocationMode[locationMode] = [] // reset the array
                             }
                         }
                     }
