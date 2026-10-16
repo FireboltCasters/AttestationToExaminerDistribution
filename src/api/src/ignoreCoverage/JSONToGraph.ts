@@ -139,6 +139,53 @@ export default class JSONToGraph {
         return plan?.tutorSlotConditions?.[tutor]?.[day]?.[time];
     }
 
+    /**
+     * Normalizes a tutor slot condition to the way the attestation takes place:
+     *  - "onsite": e.g. "Präsenz", "vor Ort"
+     *  - "online": e.g. "Online"
+     *  - "online-reserved": mixed conditions, e.g. "Online unter Vorbehalt, sonst vor Ort"
+     *  - "unspecified": no condition
+     * Unknown conditions are returned normalized, so they only match the same condition.
+     */
+    static getLocationMode(condition: string | undefined): string {
+        let normalized = (condition || "").trim().toLowerCase().replace(/\s+/g, " ");
+        if(normalized.length === 0) {
+            return "unspecified";
+        }
+        let hasOnline = /online|digital|remote/.test(normalized);
+        let hasOnsite = /präsenz|praesenz|vor ort|vor-ort|presence|on site|on-site|onsite/.test(normalized);
+        let isReserved = /vorbehalt|sonst|bedarf|ggf|eventuell|evtl|otherwise|reserv/.test(normalized);
+        if(hasOnline && (hasOnsite || isReserved)) {
+            return "online-reserved";
+        }
+        if(hasOnline) {
+            return "online";
+        }
+        if(hasOnsite) {
+            return "onsite";
+        }
+        return normalized;
+    }
+
+    static getSlotLocationMode(plan: any, slot: any): string {
+        if(!slot) {
+            return "unspecified";
+        }
+        return JSONToGraph.getLocationMode(JSONToGraph.getTutorSlotCondition(plan, slot.tutor, slot.day, slot.time));
+    }
+
+    /**
+     * A group must not be switched between on-site and online by the optimization.
+     * So a group may only be assigned to slots with the same location mode as its currently selected slot.
+     */
+    static isSlotAllowedForGroup(plan: any, groupName: string, slot: any): boolean {
+        let selectedSlot = plan?.groups?.[groupName]?.selectedSlot;
+        if(!selectedSlot) {
+            return true;
+        }
+        return JSONToGraph.getSlotLocationMode(plan, selectedSlot) === JSONToGraph.getSlotLocationMode(plan, slot);
+    }
+
     static getGreatestCommonDivisor(a: number, b: number): number {
         a = Math.abs(a);
         b = Math.abs(b);
@@ -317,7 +364,7 @@ export default class JSONToGraph {
                     let allSlotNames = Object.keys(slotsWithNames);
                     for(const slotName of allSlotNames) {
                         let slot = slotsWithNames[slotName];
-                        if(slot.day === day && slot.time === time) {
+                        if(slot.day === day && slot.time === time && JSONToGraph.isSlotAllowedForGroup(parsedJSON, groupName, slot)) {
                             //@ts-ignore
                             let slotVertice = result.nameToVertice[slotName];
                             //@ts-ignore
