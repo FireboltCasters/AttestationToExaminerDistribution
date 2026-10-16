@@ -174,16 +174,86 @@ export default class JSONToGraph {
         return JSONToGraph.getLocationMode(JSONToGraph.getTutorSlotCondition(plan, slot.tutor, slot.day, slot.time));
     }
 
+    static MODE_SWITCH_STRATEGY_CARRY = "carry";
+    static MODE_SWITCH_STRATEGY_ADOPT = "adopt";
+    static MODE_SWITCH_STRATEGY_SEPARATE = "separate";
+
     /**
-     * A group must not be switched between on-site and online by the optimization.
-     * So a group may only be assigned to slots with the same location mode as its currently selected slot.
+     * Settings how the optimization handles groups and slots with different location modes:
+     *  - allowed: false (default) => a group is never switched between on-site and online
+     *  - strategy (only if allowed):
+     *     - "carry" (default): the group takes its mode along, the slot gets the condition of the group
+     *     - "adopt": the group switches to the mode of the slot
+     *     - "separate": groups with different modes stay separate, like not allowed
      */
-    static isSlotAllowedForGroup(plan: any, groupName: string, slot: any): boolean {
+    static getModeSwitchSettings(plan: any): {allowed: boolean, strategy: string} {
+        let strategy = plan?.modeSwitch?.strategy;
+        if(strategy !== JSONToGraph.MODE_SWITCH_STRATEGY_ADOPT && strategy !== JSONToGraph.MODE_SWITCH_STRATEGY_SEPARATE) {
+            strategy = JSONToGraph.MODE_SWITCH_STRATEGY_CARRY;
+        }
+        return {allowed: plan?.modeSwitch?.allowed === true, strategy};
+    }
+
+    /**
+     * Returns the strategy which is effectively used, "separate" if a mode switch is not allowed
+     */
+    static getEffectiveModeSwitchStrategy(plan: any): string {
+        let settings = JSONToGraph.getModeSwitchSettings(plan);
+        return settings.allowed ? settings.strategy : JSONToGraph.MODE_SWITCH_STRATEGY_SEPARATE;
+    }
+
+    /**
+     * A tutor slot can be marked, so the tutor must keep the mode of the slot (e.g. the tutor can only be on site)
+     */
+    static isTutorSlotModeLocked(plan: any, slot: any): boolean {
+        if(!slot) {
+            return false;
+        }
+        return plan?.tutorSlotModeLocked?.[slot.tutor]?.[slot.day]?.[slot.time] === true;
+    }
+
+    /**
+     * The condition of the group at the start of an optimization. During the optimization the selected slots change,
+     * but the mode of the group belongs to the slot it was originally selected.
+     */
+    static getGroupCondition(plan: any, groupName: string): string | undefined {
+        let originalConditions = plan?.optimizationGroupConditions;
+        if(originalConditions && Object.prototype.hasOwnProperty.call(originalConditions, groupName)) {
+            return originalConditions[groupName] ?? undefined;
+        }
         let selectedSlot = plan?.groups?.[groupName]?.selectedSlot;
         if(!selectedSlot) {
+            return undefined;
+        }
+        return JSONToGraph.getTutorSlotCondition(plan, selectedSlot.tutor, selectedSlot.day, selectedSlot.time);
+    }
+
+    static getGroupLocationMode(plan: any, groupName: string): string {
+        return JSONToGraph.getLocationMode(JSONToGraph.getGroupCondition(plan, groupName));
+    }
+
+    /**
+     * Returns if the group may be assigned to the slot regarding the location modes:
+     *  - same mode: always
+     *  - "separate" (or mode switch not allowed): never
+     *  - "carry": only if the tutor does not need to keep the mode of the slot
+     *  - "adopt": always, the group switches to the mode of the slot
+     */
+    static isSlotAllowedForGroup(plan: any, groupName: string, slot: any): boolean {
+        if(!plan?.groups?.[groupName]?.selectedSlot) {
             return true;
         }
-        return JSONToGraph.getSlotLocationMode(plan, selectedSlot) === JSONToGraph.getSlotLocationMode(plan, slot);
+        if(JSONToGraph.getGroupLocationMode(plan, groupName) === JSONToGraph.getSlotLocationMode(plan, slot)) {
+            return true;
+        }
+        let strategy = JSONToGraph.getEffectiveModeSwitchStrategy(plan);
+        if(strategy === JSONToGraph.MODE_SWITCH_STRATEGY_SEPARATE) {
+            return false;
+        }
+        if(strategy === JSONToGraph.MODE_SWITCH_STRATEGY_CARRY) {
+            return !JSONToGraph.isTutorSlotModeLocked(plan, slot);
+        }
+        return true;
     }
 
     static getGreatestCommonDivisor(a: number, b: number): number {

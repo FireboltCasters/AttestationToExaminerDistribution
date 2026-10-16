@@ -133,3 +133,89 @@ test('Single groups are only merged with the same location mode', () => {
     let merged = GraphHelper.mergeSingleGroups(plan);
     expect(Object.keys(merged.groups).sort()).toEqual(["X", "Y"]);
 });
+
+function getModePlan(modeSwitch?: any, lockedTimes: string[] = []): any {
+    let tutors: any = {A: {Monday: {}}, B: {Monday: {}}};
+    let tutorSlotConditions: any = {A: {Monday: {}}, B: {Monday: {}}};
+    let tutorSlotModeLocked: any = {B: {Monday: {}}};
+    let groups: any = {};
+    for(let i = 0; i < 6; i++) {
+        let time = JSONToGraph.minutesToTime(8 * 60 + i * 30);
+        tutors.A.Monday[time] = true;
+        tutors.B.Monday[time] = true;
+        tutorSlotConditions.A.Monday[time] = "vor Ort";
+        tutorSlotConditions.B.Monday[time] = "Online unter Vorbehalt, sonst vor Ort";
+        if(lockedTimes.includes(time)) {
+            tutorSlotModeLocked.B.Monday[time] = true;
+        }
+        groups["G" + i] = {members: ["G" + i], selectedSlot: {tutor: "A", day: "Monday", time}, possibleSlots: {Monday: {[time]: true}}};
+    }
+    return {groups, tutors, tutorSlotConditions, tutorSlotModeLocked, modeSwitch};
+}
+
+function countTutors(plan: any): any {
+    let counts: any = {A: 0, B: 0};
+    for(const name of Object.keys(plan.groups)) {
+        counts[plan.groups[name].selectedSlot.tutor]++;
+    }
+    return counts;
+}
+
+test('Mode switch settings default to not allowed and carry', () => {
+    expect(JSONToGraph.getModeSwitchSettings({})).toEqual({allowed: false, strategy: "carry"});
+    expect(JSONToGraph.getEffectiveModeSwitchStrategy({})).toBe("separate");
+    expect(JSONToGraph.getEffectiveModeSwitchStrategy({modeSwitch: {allowed: true}})).toBe("carry");
+});
+
+test('Mode switch "separate" keeps the groups at their mode', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let optimized = GraphHelper.getOptimizedDistribution(getModePlan({allowed: true, strategy: "separate"}));
+    expect(countTutors(optimized)).toEqual({A: 6, B: 0});
+});
+
+test('Mode switch "carry": the students take their mode to the new slot', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let optimized = GraphHelper.getOptimizedDistribution(getModePlan({allowed: true, strategy: "carry"}));
+    expect(countTutors(optimized)).toEqual({A: 3, B: 3});
+    expect(optimized.optimizationGroupConditions).toBeUndefined();
+    for(const name of Object.keys(optimized.groups)) {
+        let slot = optimized.groups[name].selectedSlot;
+        expect(JSONToGraph.getTutorSlotCondition(optimized, slot.tutor, slot.day, slot.time)).toBe("vor Ort");
+    }
+});
+
+test('Mode switch "carry": slots where the tutor must keep the mode get no group of another mode', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let lockedTimes = ["08:00", "08:30", "09:00", "09:30", "10:00"];
+    let optimized = GraphHelper.getOptimizedDistribution(getModePlan({allowed: true, strategy: "carry"}, lockedTimes));
+    expect(countTutors(optimized)).toEqual({A: 5, B: 1});
+    expect(optimized.groups["G5"].selectedSlot.tutor).toBe("B");
+    expect(JSONToGraph.getTutorSlotCondition(optimized, "B", "Monday", "08:00")).toBe("Online unter Vorbehalt, sonst vor Ort");
+});
+
+test('Mode switch "adopt": the students switch to the mode of the slot', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let optimized = GraphHelper.getOptimizedDistribution(getModePlan({allowed: true, strategy: "adopt"}, ["08:00"]));
+    expect(countTutors(optimized)).toEqual({A: 3, B: 3});
+    for(const name of Object.keys(optimized.groups)) {
+        let slot = optimized.groups[name].selectedSlot;
+        let expected = slot.tutor === "A" ? "vor Ort" : "Online unter Vorbehalt, sonst vor Ort";
+        expect(JSONToGraph.getTutorSlotCondition(optimized, slot.tutor, slot.day, slot.time)).toBe(expected);
+    }
+});
+
+test('Single groups with different modes are only merged with "adopt"', () => {
+    const GraphHelper = require("../ignoreCoverage/GraphHelper").default;
+    let getPlan = (modeSwitch: any) => ({
+        modeSwitch,
+        tutors: {A: {Monday: {"08:00": true}}, B: {Monday: {"08:00": true}}},
+        tutorSlotConditions: {A: {Monday: {"08:00": "vor Ort"}}, B: {Monday: {"08:00": "Online"}}},
+        groups: {
+            X: {members: ["X"], selectedSlot: {tutor: "A", day: "Monday", time: "08:00"}, possibleSlots: {Monday: {"08:00": true}}},
+            Y: {members: ["Y"], selectedSlot: {tutor: "B", day: "Monday", time: "08:00"}, possibleSlots: {Monday: {"08:00": true}}},
+        },
+    });
+    expect(Object.keys(GraphHelper.mergeSingleGroups(getPlan({allowed: true, strategy: "carry"})).groups).length).toBe(2);
+    expect(Object.keys(GraphHelper.mergeSingleGroups(getPlan({allowed: true, strategy: "separate"})).groups).length).toBe(2);
+    expect(Object.keys(GraphHelper.mergeSingleGroups(getPlan({allowed: true, strategy: "adopt"})).groups)).toEqual(["X & Y"]);
+});

@@ -362,8 +362,8 @@ export default class GraphHelper {
         for(let i=0; i<tutorPermutations.length; i++) {
             let tutorPermutation = tutorPermutations[i];
             let newPlanWithSwitchedTutors = this.getPlanWithSwitchedTutors(newPlanCopy, tutorPermutation, groupsAtTimeAndDay);
-            if(!this.isPlanKeepingLocationModes(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay)) {
-                continue; // a group would be switched between on-site and online
+            if(!this.isPlanRespectingLocationModes(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay)) {
+                continue; // a group would get a slot with a mode it is not allowed to switch to
             }
             let amountOfSwitches = this.countAmountOfSwitchesInPlan(oldPlan, newPlanWithSwitchedTutors, groupsAtTimeAndDay);
 //            console.log("Permutation "+i+" amountOfSwitches: " + amountOfSwitches);
@@ -378,7 +378,7 @@ export default class GraphHelper {
         return bestPlan;
     }
 
-    static isPlanKeepingLocationModes(oldPlan: any, newPlan: any, groupNames: any): boolean {
+    static isPlanRespectingLocationModes(oldPlan: any, newPlan: any, groupNames: any): boolean {
         for(const groupName of groupNames) {
             let newSelectedSlot = newPlan.groups?.[groupName]?.selectedSlot;
             if(!JSONToGraph.isSlotAllowedForGroup(oldPlan, groupName, newSelectedSlot)) {
@@ -495,8 +495,11 @@ export default class GraphHelper {
                         let members = PlanEditHelper.getMembers(unoptimizedJSON, currentGroupName);
                         if(members.length === 1){
                             console.log("Found single group: " + currentGroupName + " at " + day + " " + time)
-                            // only merge groups with the same location mode, so nobody is switched between on-site and online
-                            let locationMode = JSONToGraph.getSlotLocationMode(unoptimizedJSON, useSelectedSlot);
+                            // only merge groups with the same location mode, so nobody is switched between on-site and online.
+                            // with "carry" two students with different modes can not both keep their mode in one testat
+                            // with "adopt" the merged member switches to the mode of the slot, so all modes can be merged
+                            let locationMode = JSONToGraph.getEffectiveModeSwitchStrategy(unoptimizedJSON) === JSONToGraph.MODE_SWITCH_STRATEGY_ADOPT
+                                ? "all" : JSONToGraph.getSlotLocationMode(unoptimizedJSON, useSelectedSlot);
                             let singleGroups = singleGroupsByLocationMode[locationMode] = singleGroupsByLocationMode[locationMode] || [];
                             singleGroups.push(currentGroupName);
                             if(singleGroups.length >= 2){
@@ -536,10 +539,47 @@ export default class GraphHelper {
         return newPlan;
     }
 
+    /**
+     * Remembers the condition of every group before the optimization, so the mode of a group stays known
+     * while its selected slot changes during the optimization steps
+     */
+    static getPlanWithOptimizationGroupConditions(plan: any): any {
+        let newPlan = JSON.parse(JSON.stringify(plan));
+        let conditions: Record<string, string | null> = {};
+        for(const groupName of Object.keys(newPlan.groups || {})) {
+            conditions[groupName] = JSONToGraph.getGroupCondition(plan, groupName) ?? null;
+        }
+        newPlan.optimizationGroupConditions = conditions;
+        return newPlan;
+    }
+
+    /**
+     * With the strategy "carry" the students take their mode along: every slot which got a group with a different
+     * mode gets the condition of the group's original slot.
+     */
+    static applyCarriedModes(oldPlan: any, newPlan: any): any {
+        let result = JSON.parse(JSON.stringify(newPlan));
+        if(JSONToGraph.getEffectiveModeSwitchStrategy(oldPlan) !== JSONToGraph.MODE_SWITCH_STRATEGY_CARRY) {
+            return result;
+        }
+        for(const groupName of Object.keys(result.groups || {})) {
+            let newSlot = result.groups[groupName]?.selectedSlot;
+            if(!newSlot || !oldPlan.groups?.[groupName]) {
+                continue;
+            }
+            let groupMode = JSONToGraph.getGroupLocationMode(oldPlan, groupName);
+            if(groupMode !== JSONToGraph.getSlotLocationMode(oldPlan, newSlot)) {
+                result = PlanEditHelper.setTutorSlotCondition(result, newSlot, JSONToGraph.getGroupCondition(oldPlan, groupName));
+            }
+        }
+        return result;
+    }
+
     static getOptimizedDistribution(unoptimizedJSON: any){
         console.log("getOptimizedDistribution");
         let oldPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
-        let newPlan = JSON.parse(JSON.stringify(unoptimizedJSON));
+        let newPlan = GraphHelper.getPlanWithOptimizationGroupConditions(unoptimizedJSON);
+        unoptimizedJSON = newPlan;
 
         let optionRemoveUnnecessarySwitches = true;
         let optionOptimizeMinimum = true;
@@ -554,6 +594,9 @@ export default class GraphHelper {
         if(optionRemoveUnnecessarySwitches) {
             newPlan = GraphHelper.removeUnnecessarySwitchesInSameSlots(oldPlan, newPlan);
         }
+
+        delete newPlan.optimizationGroupConditions;
+        newPlan = GraphHelper.applyCarriedModes(oldPlan, newPlan);
 
         return newPlan;
     }
