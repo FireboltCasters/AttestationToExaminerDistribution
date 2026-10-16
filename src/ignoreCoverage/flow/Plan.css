@@ -239,6 +239,21 @@
     color: #b45309;
 }
 
+.atd-mode-lock {
+    font-size: 0.7rem;
+    color: #075985;
+    margin-left: 2px;
+}
+
+.atd-mode-hint {
+    font-size: 0.75rem;
+    color: #b91c1c;
+}
+
+.atd-card-meta.atd-mode-hint {
+    color: #b91c1c;
+}
+
 .atd-badge {
     display: inline-block;
     font-size: 0.7rem;

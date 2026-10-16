@@ -8,7 +8,7 @@ import {EditSheet} from "./EditSheet";
 import {ExampleCSVContent, JSONToGraph} from "./../../api/src/";
 import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {useI18n} from "../i18n/I18n";
-import {DragPayload, EditTarget, getSelectionKey, getSlotKey, getTutorColor, Selection, SlotRef} from "./PlanTypes";
+import {DragPayload, EditTarget, getModeChangeHints, getSelectionKey, getSlotKey, getTutorColor, Selection, SlotRef} from "./PlanTypes";
 import {HistoryLabel, usePlanHistory} from "./usePlanHistory";
 import {getFilterKey, getOnlyTutor, isFreeTutorSlotVisible, isGroupVisible, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 import "./Plan.css";
@@ -282,7 +282,13 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
             return null;
         }
         let condition = JSONToGraph.getTutorSlotCondition(currentPlan, slot.tutor, slot.day, slot.time);
-        return condition ? <span className="atd-condition" title={condition}>{condition}</span> : null;
+        let locked = JSONToGraph.isTutorSlotModeLocked(currentPlan, slot);
+        return (
+            <>
+                {condition ? <span className="atd-condition" title={condition}>{condition}</span> : null}
+                {locked ? <i className="pi pi-lock atd-mode-lock" title={t("mode.locked")} aria-label={t("mode.locked")}/> : null}
+            </>
+        );
     }
 
     function renderEditButton(target: EditTarget) {
@@ -343,6 +349,7 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     {members.length === 1 ? <span className="atd-badge">{t("slot.singleGroup")}</span> : null}
                 </div>
                 {beforeText ? <div className="atd-card-meta atd-before">{beforeText}</div> : null}
+                {changed ? getModeChangeHints(oldPlan, newPlan, groupName, t).map((hint) => <div key={hint} className="atd-card-meta atd-mode-hint">{hint}</div>) : null}
                 {renderEditButton({kind: "group", groupName})}
             </div>
         );
@@ -522,6 +529,8 @@ export const AttestationToExaminerDistribution: FunctionComponent = () => {
                     (plan) => PlanEditHelper.deleteGroup(plan, groupName), null))}
                 onSaveCondition={(slot, condition) => closeAfter(() => applyEdit({key: "history.condition", params: {...slotParams(slot), condition: condition.trim() || "–"}},
                     (plan) => PlanEditHelper.setTutorSlotCondition(plan, slot, condition), null))}
+                onSetModeLocked={(slot, locked) => applyEdit({key: "history.modeLocked", params: {...slotParams(slot), value: t(locked ? "mode.yes" : "mode.no")}},
+                    (plan) => PlanEditHelper.setTutorSlotModeLocked(plan, slot, locked), null)}
                 onMoveTutorSlot={(slot, day, time, tutor) => {
                     if(moveTutorSlot(slot, day, time, tutor)) {
                         setEditTarget(null);

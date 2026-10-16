@@ -18,6 +18,7 @@ export interface EditSheetProps {
     onSplitGroup: (groupName: string) => void;
     onDeleteGroup: (groupName: string) => void;
     onSaveCondition: (slot: SlotRef, condition: string) => void;
+    onSetModeLocked: (slot: SlotRef, locked: boolean) => void;
     onMoveTutorSlot: (slot: SlotRef, day: string, time: string, tutor: string) => void;
     onDeleteTutorSlot: (slot: SlotRef) => void;
     onAddGroup: (slot: SlotRef, members: string[]) => void;
@@ -100,6 +101,12 @@ export const EditSheet: FunctionComponent<EditSheetProps> = (props) => {
                     <span>{formatSlot(slot)}</span>
                     {condition ? <span className="atd-condition">{condition}</span> : null}
                 </div>
+                <label className="atd-checkbox atd-edit-filter" title={t("mode.lockedHint")}>
+                    <input type="checkbox" checked={JSONToGraph.isTutorSlotModeLocked(plan, slot)}
+                           onChange={(e) => props.onSetModeLocked(slot, e.target.checked)}/>
+                    <i className="pi pi-lock"/>
+                    {t("mode.locked")}
+                </label>
                 <label className="atd-checkbox atd-edit-filter">
                     <input type="checkbox" checked={props.isHidingOtherSlotsOfTutor(slot)}
                            onChange={(e) => props.onHideOtherSlotsOfTutor(slot, e.target.checked)}/>

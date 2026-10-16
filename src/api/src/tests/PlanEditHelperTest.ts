@@ -89,3 +89,22 @@ test('Groups can be added and deleted', () => {
     expect(plan.groups["C (2)"].selectedSlot.tutor).toBe("T1");
     expect(Object.keys(PlanEditHelper.deleteGroup(plan, "C").groups).sort()).toEqual(["A & B", "C (2)"]);
 });
+
+test('The mode lock of a tutor slot is moved and deleted with the slot', () => {
+    let locked = PlanEditHelper.setTutorSlotModeLocked(getPlan(), {tutor: "T1", day: "Monday", time: "08:30"}, true);
+    expect(locked.tutorSlotModeLocked).toEqual({"T1": {"Monday": {"08:30": true}}});
+    let moved = PlanEditHelper.moveTutorSlot(locked, {tutor: "T1", day: "Monday", time: "08:30"}, "Tuesday", "10:00");
+    expect(moved.tutorSlotModeLocked).toEqual({"T1": {"Tuesday": {"10:00": true}}});
+    let deleted = PlanEditHelper.deleteTutorSlot(moved, {tutor: "T1", day: "Tuesday", time: "10:00"});
+    expect(deleted.tutorSlotModeLocked).toEqual({});
+});
+
+test('Duplicate students are found', () => {
+    let plan = getPlan();
+    expect(PlanEditHelper.getDuplicateMembers(plan)).toEqual([]);
+    plan.groups["a"] = {members: [" a "], selectedSlot: {tutor: "T1", day: "Monday", time: "08:30"}, possibleSlots: {}};
+    let duplicates = PlanEditHelper.getDuplicateMembers(plan);
+    expect(duplicates.length).toBe(1);
+    expect(duplicates[0].member).toBe("A");
+    expect(duplicates[0].groups.map((g) => g.groupName)).toEqual(["A & B", "a"]);
+});

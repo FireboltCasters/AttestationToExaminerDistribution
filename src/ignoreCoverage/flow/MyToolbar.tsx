@@ -11,7 +11,7 @@ import PlanEditHelper from "../../api/src/ignoreCoverage/PlanEditHelper";
 import {JSONToGraph} from "../../api/src";
 import HtmlTableStudIp from "../helper/HtmlTableStudIp";
 import {Language, LANGUAGE_OPTIONS, useI18n} from "../i18n/I18n";
-import {getTutorColor} from "./PlanTypes";
+import {getModeChangeHints, getTutorColor} from "./PlanTypes";
 import {HistoryEntry, HistoryLabel} from "./usePlanHistory";
 import {getFilterKey, getOnlyTutor, hasFilter, removeFilter, setFilter, ViewFilter} from "./ViewFilters";
 
@@ -43,6 +43,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
     const [displayStudipTableImport, setDisplayStudipTableImport] = useState(false);
     const [studipTableImportValue, setStudipTableImportValue] = useState("");
     const [multiplierDrafts, setMultiplierDrafts] = useState<Record<string, string>>({});
+    const [duplicateMembers, setDuplicateMembers] = useState<ReturnType<typeof PlanEditHelper.getDuplicateMembers> | null>(null);
 
     function formatMultiplier(multiplier: number): string {
         let text = "" + multiplier;
@@ -162,6 +163,8 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                             onClick={() => commitPlans(GraphHelper.mergeSingleGroups(oldPlan), null, {key: "history.mergeSingleGroups"})}/>
                     <Button label={t("edit.optimize")} icon="pi pi-bolt" disabled={!oldPlan}
                             onClick={() => commitPlans(oldPlan, GraphHelper.getOptimizedDistribution(oldPlan), {key: "history.optimize"})}/>
+                    <Button label={t("edit.checkDuplicates")} icon="pi pi-search" className="p-button-outlined" disabled={!usePlan}
+                            onClick={() => setDuplicateMembers(PlanEditHelper.getDuplicateMembers(usePlan))}/>
                     <Button label={props.switchMode ? t("switch.cancel") : t("edit.switch")} icon="pi pi-arrows-h"
                             className={props.switchMode ? "p-button-help" : "p-button-outlined p-button-help"}
                             onClick={() => props.setSwitchMode(!props.switchMode)}/>
@@ -174,6 +177,37 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                     <Button label={t("edit.resetChanges")} icon="pi pi-replay" className="p-button-outlined p-button-danger" disabled={!newPlan}
                             onClick={() => commitPlans(oldPlan, null, {key: "history.resetChanges"})}/>
                 </div>
+            </div>
+        );
+    }
+
+    function renderModeSwitchSection() {
+        let settings = JSONToGraph.getModeSwitchSettings(oldPlan);
+        let strategy = JSONToGraph.getEffectiveModeSwitchStrategy(oldPlan);
+        let strategyOptions = [JSONToGraph.MODE_SWITCH_STRATEGY_CARRY, JSONToGraph.MODE_SWITCH_STRATEGY_ADOPT, JSONToGraph.MODE_SWITCH_STRATEGY_SEPARATE]
+            .map((value) => ({label: t("mode.strategy." + value), value}));
+        let hintKey = settings.allowed ? "mode.hint." + strategy : "mode.hint.notAllowed";
+
+        function commitSettings(next: {allowed: boolean, strategy: string}) {
+            let withSettings = (plan: any) => plan ? PlanEditHelper.setModeSwitchSettings(plan, next) : plan;
+            let value = next.allowed ? t("mode.strategy." + next.strategy) : t("mode.notAllowedShort");
+            commitPlans(withSettings(oldPlan), withSettings(newPlan), {key: "history.modeSwitch", params: {value}});
+        }
+
+        return (
+            <div className="atd-panel">
+                <h3>{t("mode.title")}</h3>
+                <label className="atd-checkbox">
+                    <input type="checkbox" checked={settings.allowed} disabled={!oldPlan}
+                           onChange={(e) => commitSettings({...settings, allowed: e.target.checked})}/>
+                    {t("mode.allow")}
+                </label>
+                <div className="atd-edit-row" style={{marginTop: 6}}>
+                    <Dropdown value={settings.strategy} options={strategyOptions} disabled={!oldPlan || !settings.allowed} placeholder={t("mode.strategy")}
+                              onChange={(e) => commitSettings({...settings, strategy: e.value})} style={{width: "100%"}}/>
+                </div>
+                <div className="atd-muted" style={{marginTop: 6}}><i className="pi pi-info-circle" style={{marginRight: 4}}/>{t(hintKey)}</div>
+                <div className="atd-muted" style={{marginTop: 4}}><i className="pi pi-lock" style={{marginRight: 4}}/>{t("mode.lockedHint")}</div>
             </div>
         );
     }
@@ -398,7 +432,9 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
                             <tr key={change.groupName}>
                                 <td>{change.groupName}</td>
                                 <td>{change.oldSlot?.tutor || "–"}<br/><span className="atd-muted">{formatSlot(change.oldSlot)}</span></td>
-                                <td>{change.newSlot?.tutor || "–"}<br/><span className="atd-muted">{formatSlot(change.newSlot)}</span></td>
+                                <td>{change.newSlot?.tutor || "–"}<br/><span className="atd-muted">{formatSlot(change.newSlot)}</span>
+                                    {getModeChangeHints(oldPlan, newPlan, change.groupName, t).map((hint) => <div key={hint} className="atd-mode-hint">{hint}</div>)}
+                                </td>
                             </tr>
                         ))}
                         </tbody>
@@ -563,6 +599,26 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
 
         return (
             <>
+                <Dialog header={t("duplicates.title")} visible={!!duplicateMembers} style={{width: 'min(600px, 95vw)'}} onHide={() => setDuplicateMembers(null)}
+                        footer={<Button label={t("modal.close")} icon="pi pi-check" onClick={() => setDuplicateMembers(null)}/>}>
+                    {duplicateMembers && duplicateMembers.length === 0 ? <p>{t("duplicates.none")}</p> : (
+                        <>
+                            <p>{t("duplicates.found", {count: duplicateMembers?.length || 0})}</p>
+                            <ul>
+                                {(duplicateMembers || []).map((entry) => (
+                                    <li key={entry.member}>
+                                        <strong>{entry.member}</strong>
+                                        <ul>
+                                            {entry.groups.map((group, index) => (
+                                                <li key={index}>{group.groupName} <span className="atd-muted">({group.slot?.tutor || "–"}, {formatSlot(group.slot)})</span></li>
+                                            ))}
+                                        </ul>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
+                </Dialog>
                 <Dialog header={t("import.jsonTextHeader")} visible={displayJsonTextImport} style={{width: 'min(800px, 95vw)'}} footer={footerJson} onHide={() => setDisplayJsonTextImport(false)}>
                     <p>{t("import.jsonTextHint")}</p>
                     <InputTextarea rows={20} style={{width: "100%"}} value={jsonTextImportValue} onChange={(e) => setJsonTextImportValue(e.target.value)}/>
@@ -580,6 +636,7 @@ export const MyToolbar: FunctionComponent<AppState> = (props) => {
             {renderLanguageSection()}
             {renderImportSection()}
             {renderEditSection()}
+            {renderModeSwitchSection()}
             {renderFilterSection()}
             {renderHistorySection()}
             {renderExportSection()}

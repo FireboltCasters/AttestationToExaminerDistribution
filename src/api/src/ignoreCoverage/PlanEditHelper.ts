@@ -22,6 +22,27 @@ export default class PlanEditHelper {
         return Array.isArray(members) && members.length > 0 ? members : [groupName];
     }
 
+    /**
+     * Returns all students which are registered more than once (in several groups or twice in one group).
+     * Names are compared case insensitive and without surrounding spaces.
+     */
+    static getDuplicateMembers(plan: any): {member: string, groups: {groupName: string, slot: SlotRef | undefined}[]}[] {
+        let byName: Record<string, {member: string, groups: {groupName: string, slot: SlotRef | undefined}[]}> = {};
+        for(const groupName of Object.keys(plan?.groups || {})) {
+            for(const member of PlanEditHelper.getMembers(plan, groupName)) {
+                let key = ("" + member).trim().toLowerCase().replace(/\s+/g, " ");
+                if(key.length === 0) {
+                    continue;
+                }
+                byName[key] = byName[key] || {member: ("" + member).trim(), groups: []};
+                byName[key].groups.push({groupName, slot: plan.groups[groupName]?.selectedSlot});
+            }
+        }
+        return Object.values(byName)
+            .filter((entry) => entry.groups.length > 1)
+            .sort((a, b) => a.member.localeCompare(b.member));
+    }
+
     static getGroupNameFromMembers(members: string[]): string {
         return members.join(" & ");
     }
@@ -260,6 +281,10 @@ export default class PlanEditHelper {
             newPlan = PlanEditHelper.setTutorSlotCondition(newPlan, from, undefined);
             newPlan = PlanEditHelper.setTutorSlotCondition(newPlan, to, condition);
         }
+        if(newPlan.tutorSlotModeLocked?.[from.tutor]?.[from.day]?.[from.time] === true) {
+            newPlan = PlanEditHelper.setTutorSlotModeLocked(newPlan, from, false);
+            newPlan = PlanEditHelper.setTutorSlotModeLocked(newPlan, to, true);
+        }
 
         for(const groupName of PlanEditHelper.getGroupNamesAtSlot(newPlan, from)) {
             newPlan = PlanEditHelper.moveGroupToSlot(newPlan, groupName, to);
@@ -289,7 +314,39 @@ export default class PlanEditHelper {
                 delete newPlan.tutors[slot.tutor][slot.day];
             }
         }
+        newPlan = PlanEditHelper.setTutorSlotModeLocked(newPlan, slot, false);
         return PlanEditHelper.setTutorSlotCondition(newPlan, slot, undefined);
+    }
+
+    /**
+     * Marks a tutor slot, so the tutor must keep the mode of the slot (e.g. the tutor can only be on site)
+     */
+    static setTutorSlotModeLocked(plan: any, slot: SlotRef, locked: boolean): any {
+        let newPlan = PlanEditHelper.clone(plan);
+        if(locked) {
+            newPlan.tutorSlotModeLocked = newPlan.tutorSlotModeLocked || {};
+            newPlan.tutorSlotModeLocked[slot.tutor] = newPlan.tutorSlotModeLocked[slot.tutor] || {};
+            newPlan.tutorSlotModeLocked[slot.tutor][slot.day] = newPlan.tutorSlotModeLocked[slot.tutor][slot.day] || {};
+            newPlan.tutorSlotModeLocked[slot.tutor][slot.day][slot.time] = true;
+            return newPlan;
+        }
+        let lockedForDay = newPlan.tutorSlotModeLocked?.[slot.tutor]?.[slot.day];
+        if(lockedForDay) {
+            delete lockedForDay[slot.time];
+            if(Object.keys(lockedForDay).length === 0) {
+                delete newPlan.tutorSlotModeLocked[slot.tutor][slot.day];
+            }
+            if(Object.keys(newPlan.tutorSlotModeLocked[slot.tutor]).length === 0) {
+                delete newPlan.tutorSlotModeLocked[slot.tutor];
+            }
+        }
+        return newPlan;
+    }
+
+    static setModeSwitchSettings(plan: any, settings: {allowed: boolean, strategy: string}): any {
+        let newPlan = PlanEditHelper.clone(plan);
+        newPlan.modeSwitch = {allowed: settings.allowed, strategy: settings.strategy};
+        return newPlan;
     }
 
     static setTutorSlotCondition(plan: any, slot: SlotRef, condition: string | undefined): any {
